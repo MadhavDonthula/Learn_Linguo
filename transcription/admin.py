@@ -5,5 +5,17 @@ from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashca
 admin.site.register(Assignment)
 admin.site.register(QuestionAnswer)
 admin.site.register(ClassCode)
-admin.site.register(FlashcardSet)
-admin.site.register(Flashcard)
+
+
+class FlashcardInline(admin.TabularInline):
+    model = Flashcard
+    extra = 1
+
+@admin.register(FlashcardSet)
+class FlashcardSetAdmin(admin.ModelAdmin):
+    inlines = [FlashcardInline]
+    fields = ('name', 'bulk_flashcards')
+
+@admin.register(Flashcard)
+class FlashcardAdmin(admin.ModelAdmin):
+    list_display = ('french_word', 'english_translation', 'flashcard_set')

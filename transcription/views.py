@@ -134,7 +134,7 @@ def check_pronunciation(request):
                 with open("temp_audio.wav", "wb") as f:
                     f.write(audio_bytes)
 
-                model = whisper.load_model("base")
+                model = whisper.load_model("small")
                 result = model.transcribe("temp_audio.wav", language="fr")
                 transcribed_text = result["text"].strip().lower()
 

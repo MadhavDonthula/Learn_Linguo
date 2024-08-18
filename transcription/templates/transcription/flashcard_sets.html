@@ -1,16 +1,31 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flashcard Sets</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{% static 'transcription/flashcards_sets.css' %}" />
   </head>
   <body>
-    <h1>Flashcard Sets</h1>
-    <ul>
-      {% for set in flashcard_sets %}
-      <li><a href="{% url 'flashcards' set.id %}">{{ set.name }}</a></li>
-      {% endfor %}
-    </ul>
+    <header>
+      <h1>Flashcard Sets</h1>
+    </header>
+    <main>
+      <div class="container">
+        {% if flashcard_sets %} {% for flashcard_set in flashcard_sets %}
+        <div
+          class="box"
+          onClick="window.location.href='{% url 'flashcards' flashcard_set.id %}'">
+          <h4>{{ flashcard_set.name }}</h4>
+        </div>
+        {% endfor %} {% else %}
+        <p class="no-sets">No flashcard sets found.</p>
+        {% endif %}
+      </div>
+    </main>
   </body>
 </html>
