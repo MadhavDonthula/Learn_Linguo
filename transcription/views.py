@@ -5,6 +5,12 @@ import string
 from django.http import HttpResponse, JsonResponse
 from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard
 
+def registerPage(request):
+    context = {}
+    return render(request, "transcription/register.html", context)
+def loginPage(request):
+
+    return render(request, "transcription/login.html")
 def blank(request):
     return render(request, "transcription/blank.html")
 

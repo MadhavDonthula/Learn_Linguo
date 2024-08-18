@@ -4,9 +4,11 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
-    path("flashcards", views.flashcard_sets, name="flashcard_sets"),  # View all flashcard sets
-    path("flashcards/<int:set_id>/", views.flashcards, name="flashcards"),  # View flashcards in a specific set
-    path("check_pronunciation/", views.check_pronunciation, name="check_pronunciation"),  # Check pronunciation
+    path("register/", views.registerPage, name="register"),
+    path("login/", views.loginPage, name="login"),
+    path("flashcards", views.flashcard_sets, name="flashcard_sets"),  
+    path("flashcards/<int:set_id>/", views.flashcards, name="flashcards"), 
+    path("check_pronunciation/", views.check_pronunciation, name="check_pronunciation"),  
     path("speak", views.blank, name="speak"),
     path("game", views.blank, name="game"),
     path("teacher_login", admin.site.urls, name="teacher_login"),
