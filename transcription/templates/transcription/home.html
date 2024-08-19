@@ -27,9 +27,8 @@
     <div class="navbar-container">
       <div class="logo"></div>
       <div class="navbar">
-        <a href="/admin ">Teacher Login</a>
-
-        <a href="#">Contact Us</a>
+       <span id="hello-msg"> Hello, {{request.user}} </span>
+         <a href="{% url "logout" %}"> Logout </a>
       </div>
     </div>
     <div class="input-container">

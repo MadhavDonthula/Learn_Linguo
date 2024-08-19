@@ -1,7 +1,9 @@
 from django import forms
-from .models import ReferenceText
+from django.contrib.auth.forms import UserCreationForm 
+from django.contrib.auth.models import User
 
-class ReferenceTextForm(forms.ModelForm):
-    class Meta:
-        model = ReferenceText
-        fields = ['text']
+
+class CreateUserForm(UserCreationForm):
+    class Meta: 
+        model = User
+        fields = ["username", "password1", "password2"]

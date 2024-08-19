@@ -4,16 +4,47 @@ import whisper
 import string
 from django.http import HttpResponse, JsonResponse
 from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard
+from django.contrib.auth.forms import UserCreationForm 
+from django.views.decorators.csrf import csrf_protect
+from .forms import CreateUserForm
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+
+from django.contrib import messages
 
 def registerPage(request):
-    context = {}
+    form = CreateUserForm()
+    if request.method == "POST":
+        form = CreateUserForm(request.POST)
+        if form.is_valid():
+            form.save()
+            user = form.cleaned_data.get("username")
+            messages.success(request, "Account was created for " + user )
+            return redirect("login")
+    context = {"form": form}
     return render(request, "transcription/register.html", context)
 def loginPage(request):
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+    
+        user = authenticate(request, username=username, password=password)
 
-    return render(request, "transcription/login.html")
+        if user is not None: 
+            login(request, user)
+            return redirect("home")
+        else: 
+            messages.info(request, "username OR/AND password is incorrect")
+
+    context = {}
+    return render(request, "transcription/login.html", context)
+def logoutUser(request):
+    logout(request)
+    return redirect("login")
 def blank(request):
     return render(request, "transcription/blank.html")
 
+@login_required(login_url="login")
 def home(request):
     if request.method == "POST":
         code = request.POST.get("class_code").upper()  # Convert code to uppercase
@@ -25,6 +56,7 @@ def home(request):
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
     return render(request, 'transcription/home.html')
 
+@login_required(login_url="login")
 def index(request, assignment_id=None):
     if assignment_id:
         assignment = get_object_or_404(Assignment, id=assignment_id)
@@ -33,11 +65,12 @@ def index(request, assignment_id=None):
         assignments = Assignment.objects.all()
     return render(request, 'transcription/index.html', {'assignments': assignments})
 
+@login_required(login_url="login")
 def record_audio(request, assignment_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     questions = assignment.questions.all()
     return render(request, "transcription/record_audio.html", {"assignment": assignment, "questions": questions})
-
+@login_required(login_url="login")
 def save_audio(request):
     if request.method == "POST":
         audio_data = request.POST.get("audio_data", "")
@@ -87,6 +120,7 @@ def save_audio(request):
             return HttpResponse(f"Error: {str(e)}")
     return HttpResponse("No audio data received")
 
+@login_required(login_url="login")
 def compare_texts(transcribed_text, answer):
     def normalize_text(text):
         text = text.lower()
@@ -104,16 +138,19 @@ def compare_texts(transcribed_text, answer):
     score = len(correct_words) / len(answer_words) * 100
     return ", ".join(missing_words), round(score, 2)
 
+@login_required(login_url="login")
 def recording(request, assignment_id, question_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     question = get_object_or_404(QuestionAnswer, id=question_id)
     
     return render(request, "transcription/recording.html", {"assignment": assignment, "question": question})
 
+@login_required(login_url="login")
 def flashcard_sets(request):
     flashcard_sets = FlashcardSet.objects.all()
     return render(request, 'transcription/flashcard_sets.html', {'flashcard_sets': flashcard_sets})
 
+@login_required(login_url="login")
 def flashcards(request, set_id):
     flashcard_set = get_object_or_404(FlashcardSet, id=set_id)
     flashcards = flashcard_set.flashcards.all()
@@ -124,6 +161,7 @@ def flashcards(request, set_id):
         'flashcard': current_flashcard,
     })
 
+@login_required(login_url="login")
 def check_pronunciation(request):
     if request.method == "POST":
         audio_data = request.POST.get("audio_data", "")
