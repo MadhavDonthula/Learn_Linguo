@@ -33,7 +33,193 @@
         id="flashcard_id"
         value="{{ flashcard.id }}" />
     </form>
-
+    <style>
+      body {
+        overflow: hidden;
+        background: radial-gradient(circle, #3b0e68 0%, #1a084e 100%);
+        font-family: Arial, sans-serif;
+      }
+      
+      h1 {
+        text-align: center;
+        color: white;
+        margin-top: 20px;
+        margin-bottom: 4rem;
+      }
+      
+      .flashcard {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 300px;
+        height: 400px;
+        background: white;
+        transform: translate(-50%, -50%);
+        perspective: 1000px;
+      }
+      
+      .flashcard-front,
+      .flashcard-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+      
+      .flashcard-front {
+        background: #4a2c79;
+        color: white;
+      }
+      
+      .flashcard-back {
+        background: #3a1f5d;
+        color: white;
+        transform: rotateY(180deg);
+      }
+      
+      .flashcard.flipped .flashcard-front {
+        transform: rotateY(180deg);
+      }
+      
+      .flashcard.flipped .flashcard-back {
+        transform: rotateY(360deg);
+      }
+      
+      .mic {
+        color: #fff;
+        cursor: pointer;
+        margin-top: 20px;
+        position: relative;
+      }
+      
+      .mic::before,
+      .mic::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 100%;
+        z-index: 2;
+        transition: background-color 0.5s ease, width 0.5s ease, height 0.5s ease;
+      }
+      
+      .mic::before {
+        width: 100px;
+        height: 100px;
+        background-color: #1a084e;
+      }
+      
+      .mic::after {
+        width: 60px;
+        height: 60px;
+        background-color: #2f1e5f;
+      }
+      
+      .mic.recording::before {
+        background-color: #8b0000;
+      }
+      
+      .mic.recording::after {
+        background-color: #a52a2a;
+        animation: circle-size-recording 1.5s ease-in-out infinite alternate;
+      }
+      
+      .mic-icon {
+        position: relative;
+        transform: scale(3);
+        width: 16px;
+        height: 12px;
+        border-bottom-left-radius: 120px;
+        border-bottom-right-radius: 120px;
+        border: 2px solid;
+        border-top: 0;
+        margin-top: 20px;
+        z-index: 3;
+      }
+      
+      .mic-icon::before,
+      .mic-icon::after {
+        content: "";
+        position: absolute;
+      }
+      
+      .mic-icon::before {
+        width: 2px;
+        height: 5px;
+        top: calc(100% + 1px);
+        left: 50%;
+        transform: translate(-50%, 0);
+        background-color: #fff;
+      }
+      
+      .mic-icon::after {
+        border: 2px solid;
+        width: 8px;
+        height: 18px;
+        left: 50%;
+        top: -10px;
+        border-radius: 4px;
+        transform: translate(-50%, 0);
+      }
+      
+      .checkmark,
+      .wrong,
+      .next-arrow {
+        display: none;
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 30px;
+        color: green;
+      }
+      
+      .wrong {
+        color: red;
+      }
+      
+      .checkmark.show,
+      .wrong.show,
+      .next-arrow.show {
+        display: block;
+      }
+      
+      .next-arrow {
+        top: 50%;
+        right: 10px;
+      }
+      .loading {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 20px;
+        color: white;
+        background-color: rgba(0, 0, 0, 0.7);
+        padding: 10px 20px;
+        border-radius: 5px;
+      }
+      
+      .transcribed-text {
+        display: none;
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 16px;
+        color: #ff4444;
+        background-color: rgba(255, 255, 255, 0.8);
+        padding: 5px 10px;
+        border-radius: 5px;
+        text-align: center;
+        max-width: 80%;
+      }
+    </style>      
     <script>
       let isRecording = false;
       let mediaRecorder;
