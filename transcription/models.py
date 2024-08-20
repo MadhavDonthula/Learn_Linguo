@@ -1,8 +1,13 @@
 from django.db import models
+from django.contrib.auth.models import User
 import re
 class Transcription(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='transcriptions', null=True, blank=True)
     audio_file = models.FileField(upload_to="audio/")
     transcribed_text = models.TextField()
+
+    def __str__(self):
+        return f"Transcription {self.id}"
 
 class Assignment(models.Model):
     name = models.CharField(max_length=100)
@@ -27,7 +32,7 @@ class ClassCode(models.Model):
 
 class FlashcardSet(models.Model):
     name = models.CharField(max_length=100)
-    bulk_flashcards = models.TextField(max_length=100000, blank=True)  # New field for bulk input
+    bulk_flashcards = models.TextField(max_length=100000, blank=True)
 
     def __str__(self):
         return self.name
@@ -38,12 +43,8 @@ class FlashcardSet(models.Model):
             self.create_flashcards_from_bulk()
 
     def create_flashcards_from_bulk(self):
-        # Delete existing flashcards
         self.flashcards.all().delete()
-
-        # Split the bulk input into individual flashcards
         flashcard_pairs = re.split(r';\s*', self.bulk_flashcards.strip())
-
         for pair in flashcard_pairs:
             if ',' in pair:
                 french, english = pair.split(',', 1)
@@ -55,8 +56,8 @@ class FlashcardSet(models.Model):
 
 class Flashcard(models.Model):
     flashcard_set = models.ForeignKey(FlashcardSet, related_name='flashcards', on_delete=models.CASCADE)
-    french_word = models.CharField(max_length=200)  # Increased max_length
-    english_translation = models.CharField(max_length=200)  # Increased max_length
+    french_word = models.CharField(max_length=200)
+    english_translation = models.CharField(max_length=200)
 
     def __str__(self):
         return f"{self.french_word} - {self.english_translation}"

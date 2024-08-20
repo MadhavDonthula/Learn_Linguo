@@ -1,20 +1,15 @@
 from django.shortcuts import render, redirect, get_object_or_404
 import base64
-import whisper
 import string
 from django.http import HttpResponse, JsonResponse
-from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard
-from django.contrib.auth.forms import UserCreationForm 
+from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, Transcription
+from django.contrib.auth.forms import UserCreationForm
 from django.views.decorators.csrf import csrf_protect
 from .forms import CreateUserForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-
 from django.contrib import messages
 from openai import OpenAI
-
-
-
 
 def registerPage(request):
     form = CreateUserForm()
@@ -23,28 +18,30 @@ def registerPage(request):
         if form.is_valid():
             form.save()
             user = form.cleaned_data.get("username")
-            messages.success(request, "Account was created for " + user )
+            messages.success(request, f"Account was created for {user}")
             return redirect("login")
     context = {"form": form}
     return render(request, "transcription/register.html", context)
+
 def loginPage(request):
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
     
         user = authenticate(request, username=username, password=password)
-
         if user is not None: 
             login(request, user)
             return redirect("home")
         else: 
-            messages.info(request, "username OR/AND password is incorrect")
+            messages.info(request, "Username or password is incorrect")
 
     context = {}
     return render(request, "transcription/login.html", context)
+
 def logoutUser(request):
     logout(request)
     return redirect("login")
+
 def blank(request):
     return render(request, "transcription/blank.html")
 
@@ -54,7 +51,7 @@ def home(request):
         code = request.POST.get("class_code").upper()  # Convert code to uppercase
         try:
             class_code = ClassCode.objects.get(code=code)
-            assignments = [class_code.assignment] 
+            assignments = [class_code.assignment]
             return render(request, 'transcription/index.html', {'assignments': assignments})
         except ClassCode.DoesNotExist:
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
@@ -74,19 +71,19 @@ def record_audio(request, assignment_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     questions = assignment.questions.all()
     return render(request, "transcription/record_audio.html", {"assignment": assignment, "questions": questions})
-@login_required(login_url="login")
-def save_audio(request):
-    if request.method == "POST":
-        audio_data = request.POST.get("audio_data", "")
-        assignment_id = request.POST.get("assignment_id", "")
-        question_id = request.POST.get("question_id", "")
 
-        if not assignment_id.isdigit() or not question_id.isdigit():
-            return HttpResponse("Error: Invalid ID format")
-        
-        assignment_id = int(assignment_id)
-        question_id = int(question_id)
-        try:
+from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponse
+import base64
+from openai import OpenAI  # Ensure you have the correct import for your OpenAI client
+
+def save_audio(request):
+    try:
+        if request.method == "POST":
+            audio_data = request.POST.get('audio_data', None)
+            assignment_id = request.POST.get('assignment_id', None)
+            question_id = request.POST.get('question_id', None)
+
             if audio_data:
                 # Decode audio data and save it as a WAV file
                 audio_bytes = base64.b64decode(audio_data)
@@ -95,50 +92,40 @@ def save_audio(request):
                     f.write(audio_bytes)
 
                 # Initialize the OpenAI client
-                client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")  # Replace with your actual API key
+                client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
 
                 # Transcribe the audio with Whisper API
-                with open(media_file_path, "rb") as media_file:
-                    response = client.audio.transcriptions.create(
-                        model="whisper-1", 
-                        file=media_file,
-                        response_format="text"  # This returns the transcription as a string
+                audio_file = open(media_file_path, "rb")
+                transcription = client.audio.transcriptions.create(
+                model="whisper-1", 
+                file=audio_file, 
+                response_format="text"
                     )
 
-                # The response is now a string, not an object
-                transcribed_text = response  # No need to access .text
-                return HttpResponse(f"Transcribed Text: {transcribed_text}")
+                transcribed_text = transcription
+                assignment = get_object_or_404(Assignment, id=assignment_id)
+                selected_question = get_object_or_404(QuestionAnswer, id=question_id, assignment=assignment)
+                selected_answer = selected_question.answer
+
+                Answer = selected_answer if selected_answer else ""
+                # Compare the transcribed text with the reference text
+                score = compare_texts(transcribed_text, Answer)
+
+                return render(request, 'transcription/result.html', {
+                    "transcribed_text": transcribed_text,
+                    'answer': Answer,
+                    'score': score,
+                    'assignment': assignment,
+                    'question': selected_question,
+                })
             else:
                 return HttpResponse("Error: Invalid audio data format")
-        except Exception as e:
-            return HttpResponse(f"Error: {str(e)}")
-    return HttpResponse("No audio data received")
-            
-    #         # Retrieve the assignment and reference text
-    #             assignment = get_object_or_404(Assignment, id=assignment_id)
-    #             selected_question = get_object_or_404(QuestionAnswer, id=question_id, assignment=assignment)
-    #             selected_answer = selected_question.answer
+        else:
+            return HttpResponse("Invalid request method")
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}")
 
-    #             Answer = selected_answer if selected_answer else ""
-    #             # Compare the transcribed text with the reference text
-    #             missing_words, score = compare_texts(transcribed_text, Answer)
 
-    #             # Pass the transcribed text, answer, and score to the result page
-    #             return render(request, 'transcription/result.html', {
-    #                 'transcribed_text': transcribed_text,
-    #                 'answer': Answer,
-    #                 'score': score,
-    #                 'assignment': assignment,
-    #                 'question': selected_question,
-    #                 "user": request.user.username  # Ensure the question object is passed
-    #             })
-    #         else:
-    #             return HttpResponse("Error: Invalid audio data format")
-    #     except Exception as e:
-    #         return HttpResponse(f"Error: {str(e)}")
-    # return HttpResponse("No audio data received")
-    # return HttpResponse("No audio data received")
-@login_required(login_url="login")
 def compare_texts(transcribed_text, answer):
     def normalize_text(text):
         text = text.lower()
@@ -160,7 +147,6 @@ def compare_texts(transcribed_text, answer):
 def recording(request, assignment_id, question_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     question = get_object_or_404(QuestionAnswer, id=question_id)
-    
     return render(request, "transcription/recording.html", {"assignment": assignment, "question": question})
 
 @login_required(login_url="login")
@@ -180,6 +166,7 @@ def flashcards(request, set_id):
     })
 
 @login_required(login_url="login")
+@login_required(login_url="login")
 def check_pronunciation(request):
     if request.method == "POST":
         audio_data = request.POST.get("audio_data", "")
@@ -192,18 +179,31 @@ def check_pronunciation(request):
 
         try:
             if audio_data:
+                # Decode audio data and save it as a WAV file
                 audio_bytes = base64.b64decode(audio_data)
-                with open("temp_audio.wav", "wb") as f:
+                media_file_path = "temp_audio.wav"
+                with open(media_file_path, "wb") as f:
                     f.write(audio_bytes)
 
-                model = whisper.load_model("small")
-                result = model.transcribe("temp_audio.wav", language="fr")
-                transcribed_text = result["text"].strip().lower()
+                # Initialize the OpenAI client
+                client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")  # Replace with your actual API key
 
+                # Transcribe the audio with Whisper API
+                with open(media_file_path, "rb") as media_file:
+                    response = client.audio.transcriptions.create(
+                        model="whisper-1", 
+                        language="fr",
+                        file=media_file,
+                        response_format="text"  # This returns the transcription as a string
+                    )
+
+                # The response is now a string, not an object
+                transcribed_text = response  # No need to access .text
+                
                 flashcard = Flashcard.objects.get(id=flashcard_id)
                 correct_text = flashcard.french_word.strip().lower()
 
-                is_correct = correct_text in transcribed_text
+                is_correct = correct_text in transcribed_text.strip().lower()
 
                 return JsonResponse({"correct": is_correct, "transcribed_text": transcribed_text})
             else:
