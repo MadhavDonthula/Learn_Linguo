@@ -1,8 +1,5 @@
-Django
-torch
-git+https://github.com/openai/whisper.git
-soundfile==0.10.3.post1
-cffi
-django_heroku
-gunicorn
-environ
+
+Django==5.0.7
+
+openai==1.41.1
+
