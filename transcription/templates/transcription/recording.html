@@ -272,6 +272,7 @@
           mediaRecorder.stop();
           isRecording = false;
           micDiv.classList.remove("recording");
+          audioChunks = [];  // Clear the audio chunks for the next recording
         }
       }
     });
