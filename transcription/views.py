@@ -9,8 +9,7 @@ from .forms import CreateUserForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from pydub import AudioSegment
-import io
+from tempfile import NamedTemporaryFile
 
 from openai import OpenAI
 
@@ -72,11 +71,6 @@ def record_audio(request, assignment_id):
     questions = assignment.questions.all()
     return render(request, "transcription/record_audio.html", {"assignment": assignment, "questions": questions})
 
-from django.shortcuts import render, get_object_or_404
-from django.http import HttpResponse
-import base64
-from openai import OpenAI  # Ensure you have the correct import for your OpenAI client
-
 def save_audio(request):
     try:
         if request.method == "POST":
@@ -88,23 +82,21 @@ def save_audio(request):
                 # Decode the base64 encoded audio data
                 audio_bytes = base64.b64decode(audio_data)
 
-                # Convert the audio bytes to an AudioSegment object
-                audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes), format="wav")
+                # Create a temporary file to hold the audio
+                with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
+                    temp_audio_file.write(audio_bytes)
+                    temp_audio_file.flush()
+                    
+                    # Initialize the OpenAI client
+                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
 
-                # Convert AudioSegment to a wav file in memory
-                wav_io = io.BytesIO()
-                audio_segment.export(wav_io, format="wav")
-                wav_io.seek(0)
-
-                # Initialize the OpenAI client
-                client = OpenAI(api_key="your_openai_api_key")
-
-                # Transcribe the audio with Whisper API
-                transcription = client.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=wav_io,
-                    response_format="text"
-                )
+                    # Transcribe the audio with Whisper API
+                    with open(temp_audio_file.name, "rb") as wav_file:
+                        transcription = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=wav_file,
+                            response_format="text"
+                        )
 
                 transcribed_text = transcription.strip()
                 assignment = get_object_or_404(Assignment, id=assignment_id)
