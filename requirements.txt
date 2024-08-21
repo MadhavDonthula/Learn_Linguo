@@ -3,3 +3,4 @@ psycopg2-binary  # If using PostgreSQL, otherwise comment this out if you're usi
 openai
 dj-database-url
 pydub
+sqlparse
