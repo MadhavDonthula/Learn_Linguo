@@ -44,8 +44,7 @@ def logoutUser(request):
     logout(request)
     return redirect("login")
 
-def blank(request):
-    return render(request, "transcription/blank.html")
+
 
 def home(request):
     if request.method == "POST":
@@ -171,31 +170,32 @@ def check_pronunciation(request):
 
         try:
             if audio_data:
-                # Decode audio data and save it as a WAV file
+                # Decode audio data and save it as a temporary WAV file
                 audio_bytes = base64.b64decode(audio_data)
-                media_file_path = "temp_audio.wav"
-                with open(media_file_path, "wb") as f:
-                    f.write(audio_bytes)
 
-                # Initialize the OpenAI client
-                client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")  # Replace with your actual API key
+                with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
+                    temp_audio_file.write(audio_bytes)
+                    temp_audio_file.flush()
 
-                # Transcribe the audio with Whisper API
-                with open(media_file_path, "rb") as media_file:
-                    response = client.audio.transcriptions.create(
-                        model="whisper-1", 
-                        language="fr",
-                        file=media_file,
-                        response_format="text"  # This returns the transcription as a string
-                    )
+                    # Initialize the OpenAI client
+                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")  # Replace with your actual API key
+
+                    # Transcribe the audio with Whisper API
+                    with open(temp_audio_file.name, "rb") as media_file:
+                        response = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            language="fr",
+                            file=media_file,
+                            response_format="text"  # This returns the transcription as a string
+                        )
 
                 # The response is now a string, not an object
-                transcribed_text = response  # No need to access .text
+                transcribed_text = response.strip()
                 
                 flashcard = Flashcard.objects.get(id=flashcard_id)
                 correct_text = flashcard.french_word.strip().lower()
 
-                is_correct = correct_text in transcribed_text.strip().lower()
+                is_correct = correct_text in transcribed_text.lower()
 
                 return JsonResponse({"correct": is_correct, "transcribed_text": transcribed_text})
             else:
@@ -203,3 +203,54 @@ def check_pronunciation(request):
         except Exception as e:
             return JsonResponse({"error": str(e)})
     return JsonResponse({"error": "No audio data received"})
+def save_audio(request):
+    try:
+        if request.method == "POST":
+            audio_data = request.POST.get('audio_data', None)
+            assignment_id = request.POST.get('assignment_id', None)
+            question_id = request.POST.get('question_id', None)
+
+            if audio_data:
+                # Decode the base64 encoded audio data
+                audio_bytes = base64.b64decode(audio_data)
+
+                # Create a temporary file to hold the audio
+                with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
+                    temp_audio_file.write(audio_bytes)
+                    temp_audio_file.flush()
+                    
+                    # Initialize the OpenAI client
+                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
+
+                    # Transcribe the audio with Whisper API
+                    with open(temp_audio_file.name, "rb") as wav_file:
+                        transcription = client.audio.transcriptions.create(
+                            model="whisper-1",
+                            file=wav_file,
+                            response_format="text"
+                        )
+
+                transcribed_text = transcription.strip()
+                assignment = get_object_or_404(Assignment, id=assignment_id)
+                selected_question = get_object_or_404(QuestionAnswer, id=question_id, assignment=assignment)
+                selected_answer = selected_question.answer
+
+                # If there's no reference answer, use an empty string
+                reference_answer = selected_answer if selected_answer else ""
+
+                # Compare the transcribed text with the reference answer
+                score = compare_texts(transcribed_text, reference_answer)
+
+                return render(request, 'transcription/result.html', {
+                    "transcribed_text": transcribed_text,
+                    'answer': reference_answer,
+                    'score': score,
+                    'assignment': assignment,
+                    'question': selected_question,
+                })
+            else:
+                return HttpResponse("Error: Invalid audio data format")
+        else:
+            return HttpResponse("Invalid request method")
+    except Exception as e:
+        return HttpResponse(f"Error: {str(e)}")

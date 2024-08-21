@@ -1,23 +1,23 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flashcards</title>
     <link rel="stylesheet" href="{% static 'transcription/flashcards.css' %}" />
-  </head>
-  <body>
+</head>
+<body>
     <div class="flashcard" id="flashcard">
-      <div class="flashcard-front">
-        <h1 id="french-word">{{ flashcard.french_word }}</h1>
-        <div id="mic" class="mic">
-          <i class="mic-icon"></i>
+        <div class="flashcard-front">
+            <h1 id="french-word">{{ flashcard.french_word }}</h1>
+            <div id="mic" class="mic">
+                <i class="mic-icon"></i>
+            </div>
         </div>
-      </div>
-      <div class="flashcard-back">
-        <h1 id="english-translation">{{ flashcard.english_translation }}</h1>
-      </div>
+        <div class="flashcard-back">
+            <h1 id="english-translation">{{ flashcard.english_translation }}</h1>
+        </div>
     </div>
     <div class="checkmark" id="checkmark">✅</div>
     <div class="wrong" id="wrong">❌</div>
@@ -25,347 +25,329 @@
     <div class="next-arrow" id="next-arrow">➡️</div>
     <div class="loading" id="loading">Loading...</div>
     <form id="audioForm" method="POST" style="display: none">
-      {% csrf_token %}
-      <input type="hidden" name="audio_data" id="audio_data" />
-      <input
-        type="hidden"
-        name="flashcard_id"
-        id="flashcard_id"
-        value="{{ flashcard.id }}" />
+        {% csrf_token %}
+        <input type="hidden" name="audio_data" id="audio_data" />
+        <input type="hidden" name="flashcard_id" id="flashcard_id" value="{{ flashcard.id }}" />
     </form>
     <style>
-      body {
-        overflow: hidden;
-        background: radial-gradient(circle, #3b0e68 0%, #1a084e 100%);
-        font-family: Arial, sans-serif;
-      }
-      
-      h1 {
-        text-align: center;
-        color: white;
-        margin-top: 20px;
-        margin-bottom: 4rem;
-      }
-      
-      .flashcard {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 300px;
-        height: 400px;
-        background: white;
-        transform: translate(-50%, -50%);
-        perspective: 1000px;
-      }
-      
-      .flashcard-front,
-      .flashcard-back {
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        backface-visibility: hidden;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-      }
-      
-      .flashcard-front {
-        background: #4a2c79;
-        color: white;
-      }
-      
-      .flashcard-back {
-        background: #3a1f5d;
-        color: white;
-        transform: rotateY(180deg);
-      }
-      
-      .flashcard.flipped .flashcard-front {
-        transform: rotateY(180deg);
-      }
-      
-      .flashcard.flipped .flashcard-back {
-        transform: rotateY(360deg);
-      }
-      
-      .mic {
-        color: #fff;
-        cursor: pointer;
-        margin-top: 20px;
-        position: relative;
-      }
-      
-      .mic::before,
-      .mic::after {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        border-radius: 100%;
-        z-index: 2;
-        transition: background-color 0.5s ease, width 0.5s ease, height 0.5s ease;
-      }
-      
-      .mic::before {
-        width: 100px;
-        height: 100px;
-        background-color: #1a084e;
-      }
-      
-      .mic::after {
-        width: 60px;
-        height: 60px;
-        background-color: #2f1e5f;
-      }
-      
-      .mic.recording::before {
-        background-color: #8b0000;
-      }
-      
-      .mic.recording::after {
-        background-color: #a52a2a;
-        animation: circle-size-recording 1.5s ease-in-out infinite alternate;
-      }
-      
-      .mic-icon {
-        position: relative;
-        transform: scale(3);
-        width: 16px;
-        height: 12px;
-        border-bottom-left-radius: 120px;
-        border-bottom-right-radius: 120px;
-        border: 2px solid;
-        border-top: 0;
-        margin-top: 20px;
-        z-index: 3;
-      }
-      
-      .mic-icon::before,
-      .mic-icon::after {
-        content: "";
-        position: absolute;
-      }
-      
-      .mic-icon::before {
-        width: 2px;
-        height: 5px;
-        top: calc(100% + 1px);
-        left: 50%;
-        transform: translate(-50%, 0);
-        background-color: #fff;
-      }
-      
-      .mic-icon::after {
-        border: 2px solid;
-        width: 8px;
-        height: 18px;
-        left: 50%;
-        top: -10px;
-        border-radius: 4px;
-        transform: translate(-50%, 0);
-      }
-      
-      .checkmark,
-      .wrong,
-      .next-arrow {
-        display: none;
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        font-size: 30px;
-        color: green;
-      }
-      
-      .wrong {
-        color: red;
-      }
-      
-      .checkmark.show,
-      .wrong.show,
-      .next-arrow.show {
-        display: block;
-      }
-      
-      .next-arrow {
-        top: 50%;
-        right: 10px;
-      }
-      .loading {
-        display: none;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        font-size: 20px;
-        color: white;
-        background-color: rgba(0, 0, 0, 0.7);
-        padding: 10px 20px;
-        border-radius: 5px;
-      }
-      
-      .transcribed-text {
-        display: none;
-        position: absolute;
-        bottom: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 16px;
-        color: #ff4444;
-        background-color: rgba(255, 255, 255, 0.8);
-        padding: 5px 10px;
-        border-radius: 5px;
-        text-align: center;
-        max-width: 80%;
-      }
-    </style>      
+        body {
+            overflow: hidden;
+            background: radial-gradient(circle, #3b0e68 0%, #1a084e 100%);
+            font-family: Arial, sans-serif;
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            margin-bottom: 4rem;
+        }
+        
+        .flashcard {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 300px;
+            height: 400px;
+            background: white;
+            transform: translate(-50%, -50%);
+            perspective: 1000px;
+        }
+        
+        .flashcard-front,
+        .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .flashcard-front {
+            background: #4a2c79;
+            color: white;
+        }
+        
+        .flashcard-back {
+            background: #3a1f5d;
+            color: white;
+            transform: rotateY(180deg);
+        }
+        
+        .flashcard.flipped .flashcard-front {
+            transform: rotateY(180deg);
+        }
+        
+        .flashcard.flipped .flashcard-back {
+            transform: rotateY(360deg);
+        }
+        
+        .mic {
+            color: #fff;
+            cursor: pointer;
+            margin-top: 20px;
+            position: relative;
+        }
+        
+        .mic::before,
+        .mic::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 100%;
+            z-index: 2;
+            transition: background-color 0.5s ease, width 0.5s ease, height 0.5s ease;
+        }
+        
+        .mic::before {
+            width: 100px;
+            height: 100px;
+            background-color: #1a084e;
+        }
+        
+        .mic::after {
+            width: 60px;
+            height: 60px;
+            background-color: #2f1e5f;
+        }
+        
+        .mic.recording::before {
+            background-color: #8b0000;
+        }
+        
+        .mic.recording::after {
+            background-color: #a52a2a;
+            animation: circle-size-recording 1.5s ease-in-out infinite alternate;
+        }
+        
+        .mic-icon {
+            position: relative;
+            transform: scale(3);
+            width: 16px;
+            height: 12px;
+            border-bottom-left-radius: 120px;
+            border-bottom-right-radius: 120px;
+            border: 2px solid;
+            border-top: 0;
+            margin-top: 20px;
+            z-index: 3;
+        }
+        
+        .mic-icon::before,
+        .mic-icon::after {
+            content: "";
+            position: absolute;
+        }
+        
+        .mic-icon::before {
+            width: 2px;
+            height: 5px;
+            top: calc(100% + 1px);
+            left: 50%;
+            transform: translate(-50%, 0);
+            background-color: #fff;
+        }
+        
+        .mic-icon::after {
+            border: 2px solid;
+            width: 8px;
+            height: 18px;
+            left: 50%;
+            top: -10px;
+            border-radius: 4px;
+            transform: translate(-50%, 0);
+        }
+        
+        .checkmark,
+        .wrong,
+        .next-arrow {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 30px;
+            color: green;
+        }
+        
+        .wrong {
+            color: red;
+        }
+        
+        .checkmark.show,
+        .wrong.show,
+        .next-arrow.show {
+            display: block;
+        }
+        
+        .next-arrow {
+            top: 50%;
+            right: 10px;
+        }
+        
+        .loading {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 5px;
+        }
+        
+        .transcribed-text {
+            display: none;
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            color: #ff4444;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 5px;
+            text-align: center;
+            max-width: 80%;
+        }
+    </style>
     <script>
-      let isRecording = false;
-      let mediaRecorder;
-      let audioChunks = [];
-      let attemptCount = 0;
-      let currentFlashcardIndex = 0;
-      const maxAttempts = 2;
+        let isRecording = false;
+        let mediaRecorder;
+        let audioChunks = [];
+        let attemptCount = 0;
+        let currentFlashcardIndex = 0;
+        const maxAttempts = 2;
 
-      const micDiv = document.getElementById("mic");
-      const checkmark = document.getElementById("checkmark");
-      const wrong = document.getElementById("wrong");
-      const flashcard = document.getElementById("flashcard");
-      const nextArrow = document.getElementById("next-arrow");
-      const loading = document.getElementById("loading");
-      const transcribedText = document.getElementById("transcribed-text");
+        const micDiv = document.getElementById("mic");
+        const checkmark = document.getElementById("checkmark");
+        const wrong = document.getElementById("wrong");
+        const flashcard = document.getElementById("flashcard");
+        const nextArrow = document.getElementById("next-arrow");
+        const loading = document.getElementById("loading");
+        const transcribedText = document.getElementById("transcribed-text");
 
-      const flashcards = [
-        {% for flashcard in flashcards %}
-          {
-            id: {{ flashcard.id }},
-            french_word: "{{ flashcard.french_word }}",
-            english_translation: "{{ flashcard.english_translation }}"
-          },
-        {% endfor %}
-      ];
+        const flashcards = [
+            {% for flashcard in flashcards %}
+                {
+                    id: {{ flashcard.id }},
+                    french_word: "{{ flashcard.french_word }}",
+                    english_translation: "{{ flashcard.english_translation }}"
+                },
+            {% endfor %}
+        ];
 
-      function updateFlashcard() {
-        const currentFlashcard = flashcards[currentFlashcardIndex];
-        document.getElementById('french-word').textContent = currentFlashcard.french_word;
-        document.getElementById('english-translation').textContent = currentFlashcard.english_translation;
-        document.getElementById('flashcard_id').value = currentFlashcard.id;
-        resetUI();
-      }
-
-      micDiv.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        if (!isRecording) {
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-              audio: true,
-            });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = []; // Reset audio chunks
-            mediaRecorder.ondataavailable = (event) => {
-              audioChunks.push(event.data);
-            };
-            mediaRecorder.onstop = () => {
-              const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-              const reader = new FileReader();
-              reader.readAsDataURL(audioBlob);
-              reader.onloadend = () => {
-                const base64String = reader.result.split(',')[1];
-                document.getElementById("audio_data").value = base64String;
-                checkPronunciation(base64String);
-              };
-            };
-            mediaRecorder.start();
-            isRecording = true;
-            micDiv.classList.add("recording");
-          } catch (error) {
-            console.error("Error accessing audio", error);
-          }
-        } else {
-          if (mediaRecorder) {
-            mediaRecorder.stop();
-            isRecording = false;
-            micDiv.classList.remove("recording");
-            attemptCount++;
-            loading.style.display = "block";
-          }
+        function updateFlashcard() {
+            const currentFlashcard = flashcards[currentFlashcardIndex];
+            document.getElementById('french-word').textContent = currentFlashcard.french_word;
+            document.getElementById('english-translation').textContent = currentFlashcard.english_translation;
+            document.getElementById('flashcard_id').value = currentFlashcard.id;
+            resetUI();
         }
-      });
 
-      flashcard.addEventListener("click", () => {
-        if (!isRecording) {
-          flashcard.classList.toggle("flipped");
-        }
-      });
-
-      function checkPronunciation(audioData) {
-        const form = document.getElementById("audioForm");
-        const formData = new FormData(form);
-
-        fetch("{% url 'check_pronunciation' %}", {
-          method: "POST",
-          body: formData,
-          headers: {
-            "X-CSRFToken": formData.get("csrfmiddlewaretoken"),
-          },
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            loading.style.display = "none";
-            if (data.correct) {
-              showCheckmark();
+        micDiv.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        audio: true,
+                    });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = []; // Reset audio chunks
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                    };
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = () => {
+                            const base64String = reader.result.split(',')[1];
+                            document.getElementById("audio_data").value = base64String;
+                            checkPronunciation(base64String);
+                        };
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    micDiv.classList.add("recording");
+                } catch (error) {
+                    console.error("Error accessing audio", error);
+                }
             } else {
-              showWrong(data.transcribed_text);
+                if (mediaRecorder) {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    micDiv.classList.remove("recording");
+                    attemptCount++;
+                    loading.style.display = "block";
+                }
             }
-          })
-          .catch((error) => {
-            console.error("Error:", error);
+        });
+
+        flashcard.addEventListener("click", () => {
+            if (!isRecording) {
+                flashcard.classList.toggle("flipped");
+            }
+        });
+
+        nextArrow.addEventListener("click", () => {
+            if (currentFlashcardIndex < flashcards.length - 1) {
+                currentFlashcardIndex++;
+                updateFlashcard();
+            }
+        });
+
+        function resetUI() {
+            checkmark.classList.remove("show");
+            wrong.classList.remove("show");
+            nextArrow.classList.remove("show");
+            transcribedText.style.display = "none";
             loading.style.display = "none";
-          });
-      }
-
-      function showCheckmark() {
-        checkmark.classList.add("show");
-        nextArrow.classList.add("show");
-        transcribedText.textContent = "";
-        transcribedText.style.display = "none";
-        resetMic();
-      }
-
-      function showWrong(transcribed) {
-        wrong.classList.add("show");
-        transcribedText.textContent = `You said: ${transcribed}`;
-        transcribedText.style.display = "block";
-        if (attemptCount >= maxAttempts) {
-          nextArrow.classList.add("show");
-          resetMic();
         }
-      }
 
-      function resetMic() {
-        micDiv.classList.remove("recording");
-        isRecording = false;
-        audioChunks = [];
-        attemptCount = 0;
-      }
+        function checkPronunciation(audioData) {
+            const form = document.getElementById("audioForm");
+            const formData = new FormData(form);
+            fetch("{% url 'check_pronunciation' %}", {
+                method: "POST",
+                body: new URLSearchParams(formData),
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = "none";
+                if (data.correct) {
+                    checkmark.classList.add("show");
+                    attemptCount = 0; // Reset attempts on success
+                    transcribedText.textContent = "Correct!";
+                    transcribedText.style.display = "block";
+                } else {
+                    if (attemptCount >= maxAttempts) {
+                        wrong.classList.add("show");
+                        nextArrow.classList.add("show");
+                        transcribedText.textContent = `Wrong! The correct word is: ${data.transcribed_text}`;
+                        transcribedText.style.display = "block";
+                    } else {
+                        wrong.classList.add("show");
+                        transcribedText.textContent = `Try again! You have ${maxAttempts - attemptCount} attempts left.`;
+                        transcribedText.style.display = "block";
+                    }
+                }
+            })
+            .catch(error => {
+                console.error("Error checking pronunciation", error);
+                loading.style.display = "none";
+                transcribedText.textContent = "An error occurred. Please try again.";
+                transcribedText.style.display = "block";
+            });
+        }
 
-      function resetUI() {
-        checkmark.classList.remove("show");
-        wrong.classList.remove("show");
-        nextArrow.classList.remove("show");
-        transcribedText.style.display = "none";
-        flashcard.classList.remove("flipped");
-        resetMic();
-      }
-
-      nextArrow.addEventListener("click", () => {
-        currentFlashcardIndex = (currentFlashcardIndex + 1) % flashcards.length;
         updateFlashcard();
-      });
-
-      // Initialize the first flashcard
-      updateFlashcard();
     </script>
-  </body>
+</body>
 </html>
