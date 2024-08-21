@@ -22,6 +22,162 @@
     <input type="hidden" name="assignment_id" value="{{ assignment.id }}" />
     <input type="hidden" name="question_id" value="{{ question.id }}" />
   </form>
+  <style>
+    body {
+      overflow: hidden;
+      background: radial-gradient(circle, #3b0e68 0%, #1a084e 100%);
+      font-family: Arial, sans-serif;
+    }
+    
+    h1 {
+      text-align: center;
+      color: white;
+      margin-top: 20px;
+    }
+    
+    #typedText {
+      text-align: center;
+      color: white;
+      font-size: 24px;
+      margin-top: 20px;
+      min-height: 30px; /* Adjust height if needed */
+    }
+    
+    .mic {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #fff;
+      cursor: pointer;
+    }
+    
+    .mic::before,
+    .mic::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 100%;
+      z-index: 2;
+      box-shadow: 0 0 20px 20px #1c084f;
+      transition: background-color 0.5s ease, width 0.5s ease, height 0.5s ease;
+    }
+    
+    .mic::before {
+      width: 300px;
+      height: 300px;
+      background-color: #1a084e;
+    }
+    
+    .mic::after {
+      width: 180px;
+      height: 180px;
+      background-color: #2f1e5f;
+    }
+    
+    .mic.recording::before {
+      background-color: #8b0000; /* Darker red */
+    }
+    
+    .mic.recording::after {
+      background-color: #a52a2a; /* Darker red */
+      animation: circle-size-recording 1.5s ease-in-out infinite alternate;
+      z-index: 1;
+    }
+    
+    .mic-icon {
+      box-sizing: border-box;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(5);
+      display: block;
+      width: 16px;
+      height: 12px;
+      border-bottom-left-radius: 120px;
+      border-bottom-right-radius: 120px;
+      border: 2px solid;
+      border-top: 0;
+      margin-top: 20px;
+      z-index: 3;
+    }
+    
+    .mic-icon::before,
+    .mic-icon::after {
+      content: "";
+      display: block;
+      box-sizing: border-box;
+      position: absolute;
+    }
+    
+    .mic-icon::before {
+      width: 2px;
+      height: 5px;
+      top: calc(100% + 1px);
+      left: 50%;
+      transform: translate(-50%, 0);
+      background-color: #fff;
+    }
+    
+    .mic-icon::after {
+      border: 2px solid;
+      width: 8px;
+      height: 18px;
+      left: 50%;
+      top: -10px;
+      border-radius: 4px;
+      transform: translate(-50%, 0);
+    }
+    
+    .mic-shadow {
+      width: 300px;
+      height: 300px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      border-radius: 100%;
+      z-index: 1;
+      box-shadow: 10px -55px 30px 15px #823ca6, 24px -10px 47px 10px #aab3d2,
+        -21px -25px 97px 10px #5acee3, 51px 5px 17px 10px #1b7d8f,
+        3px 2px 77px 10px #f30bf5;
+      animation: shadow-rotate 2s linear infinite;
+      transform-origin: center;
+    }
+    
+    @keyframes circle-size {
+      from {
+        width: 250px;
+        height: 250px;
+      }
+      to {
+        width: 270px;
+        height: 270px;
+      }
+    }
+    
+    @keyframes circle-size-recording {
+      from {
+        width: 260px;
+        height: 260px;
+      }
+      to {
+        width: 280px;
+        height: 280px;
+      }
+    }
+    
+    @keyframes shadow-rotate {
+      from {
+        transform: translate(-50%, -50%) rotate(0deg);
+      }
+      to {
+        transform: translate(-50%, -50%) rotate(360deg);
+      }
+    }
+    
+  </style>
 
   <script>
     let index = 0;
