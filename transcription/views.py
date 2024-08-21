@@ -9,6 +9,9 @@ from .forms import CreateUserForm
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from pydub import AudioSegment
+import io
+
 from openai import OpenAI
 
 def registerPage(request):
@@ -85,13 +88,21 @@ def save_audio(request):
                 # Decode the base64 encoded audio data
                 audio_bytes = base64.b64decode(audio_data)
 
-                # Initialize the OpenAI client
-                client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
+                # Convert the audio bytes to an AudioSegment object
+                audio_segment = AudioSegment.from_file(io.BytesIO(audio_bytes), format="wav")
 
-                # Transcribe the audio directly from the bytes
+                # Convert AudioSegment to a wav file in memory
+                wav_io = io.BytesIO()
+                audio_segment.export(wav_io, format="wav")
+                wav_io.seek(0)
+
+                # Initialize the OpenAI client
+                client = OpenAI(api_key="your_openai_api_key")
+
+                # Transcribe the audio with Whisper API
                 transcription = client.audio.transcriptions.create(
                     model="whisper-1",
-                    file=audio_bytes,
+                    file=wav_io,
                     response_format="text"
                 )
 
