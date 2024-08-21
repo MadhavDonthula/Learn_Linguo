@@ -82,35 +82,33 @@ def save_audio(request):
             question_id = request.POST.get('question_id', None)
 
             if audio_data:
-                # Decode audio data and save it as a WAV file
+                # Decode the base64 encoded audio data
                 audio_bytes = base64.b64decode(audio_data)
-                media_file_path = "temp_audio.wav"
-                with open(media_file_path, "wb") as f:
-                    f.write(audio_bytes)
 
                 # Initialize the OpenAI client
                 client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
 
-                # Transcribe the audio with Whisper API
-                audio_file = open(media_file_path, "rb")
+                # Transcribe the audio directly from the bytes
                 transcription = client.audio.transcriptions.create(
-                model="whisper-1", 
-                file=audio_file, 
-                response_format="text"
-                    )
+                    model="whisper-1",
+                    file=audio_bytes,
+                    response_format="text"
+                )
 
-                transcribed_text = transcription
+                transcribed_text = transcription.strip()
                 assignment = get_object_or_404(Assignment, id=assignment_id)
                 selected_question = get_object_or_404(QuestionAnswer, id=question_id, assignment=assignment)
                 selected_answer = selected_question.answer
 
-                Answer = selected_answer if selected_answer else ""
-                # Compare the transcribed text with the reference text
-                score = compare_texts(transcribed_text, Answer)
+                # If there's no reference answer, use an empty string
+                reference_answer = selected_answer if selected_answer else ""
+
+                # Compare the transcribed text with the reference answer
+                score = compare_texts(transcribed_text, reference_answer)
 
                 return render(request, 'transcription/result.html', {
                     "transcribed_text": transcribed_text,
-                    'answer': Answer,
+                    'answer': reference_answer,
                     'score': score,
                     'assignment': assignment,
                     'question': selected_question,
@@ -121,7 +119,6 @@ def save_audio(request):
             return HttpResponse("Invalid request method")
     except Exception as e:
         return HttpResponse(f"Error: {str(e)}")
-
 
 def compare_texts(transcribed_text, answer):
     def normalize_text(text):
