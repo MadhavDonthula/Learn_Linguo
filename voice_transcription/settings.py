@@ -29,7 +29,7 @@ SECRET_KEY = "django-insecure-qcpy-cu#igsxi36z%)z%)+5_al#1+o^@194kphg!&51es0z4w3
 
 # SECURITY WARNING: don't run with debug turned on in production!
 
-DEBUG = True
+DEBUG = False
 
 
 ALLOWED_HOSTS = ['*']
@@ -129,10 +129,15 @@ USE_TZ = True
 import os
 
 STATIC_URL = '/static/'
+
+# Directory where static files will be collected
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# For development, you might have:
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'staticfiles')]
+# Additional locations of static files
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
 
 # Ensure that DEBUG is set to True in development:
 DEBUG = True
