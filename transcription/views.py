@@ -45,6 +45,7 @@ def logoutUser(request):
     return redirect("login")
 
 
+@login_required(login_url="login")
 
 def home(request):
     if request.method == "POST":
@@ -57,6 +58,7 @@ def home(request):
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
     return render(request, 'transcription/home.html')
 
+@login_required(login_url="login")
 def index(request, assignment_id=None):
     if assignment_id:
         assignment = get_object_or_404(Assignment, id=assignment_id)
@@ -65,6 +67,7 @@ def index(request, assignment_id=None):
         assignments = Assignment.objects.all()
     return render(request, 'transcription/index.html', {'assignments': assignments})
 
+@login_required(login_url="login")
 def record_audio(request, assignment_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     questions = assignment.questions.all()
