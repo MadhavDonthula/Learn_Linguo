@@ -4,3 +4,4 @@ openai
 dj-database-url
 pydub
 sqlparse
+whitenoise
