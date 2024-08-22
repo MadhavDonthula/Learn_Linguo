@@ -83,8 +83,7 @@ WSGI_APPLICATION = "voice_transcription.wsgi.application"
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
-      'default': {
-        #'ENGINE': 'django.db.backends.sqlite3',
+    'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'verceldb',
         'USER': 'default',
@@ -93,10 +92,11 @@ DATABASES = {
         'PORT': '5432',
         'OPTIONS': {
             'sslmode': 'require',
-            "options": "endpoint=ep-crimson-smoke-a41z43jy"
+            "options": "-c project=ep-crimson-smoke-a41z43jy"
+        }
     }
-      }
 }
+
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
