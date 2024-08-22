@@ -14,6 +14,9 @@ from pathlib import Path
 import dj_database_url
 import os
 
+from voice_transcription import wsgi
+
+
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -50,6 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     #'django.middleware.csrf.CsrfViewMiddleware',
@@ -129,12 +133,15 @@ USE_TZ = True
 import os
 
 STATIC_URL = '/static/'
+
+# The absolute path to the directory where collectstatic will collect static files for deployment
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# For development, you might have:
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+# Additional locations where Django will search for static files
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
-# Ensure that DEBUG is set to True in development:
 DEBUG = True
 
 
