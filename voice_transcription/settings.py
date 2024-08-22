@@ -124,9 +124,18 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
+# settings.py
 
-STATIC_URL = "/static/"
-STATICFILES_DIRS = (os.path.join(BASE_DIR, "staticfiles"))
+import os
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# For development, you might have:
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
+# Ensure that DEBUG is set to True in development:
+DEBUG = True
 
 
 # Default primary key field type
