@@ -151,7 +151,6 @@ def recording(request, assignment_id, question_id):
 def flashcard_sets(request):
     flashcard_sets = FlashcardSet.objects.all()
     return render(request, 'transcription/flashcard_sets.html', {'flashcard_sets': flashcard_sets})
-
 @login_required(login_url="login")
 def flashcards(request, set_id):
     flashcard_set = get_object_or_404(FlashcardSet, id=set_id)
