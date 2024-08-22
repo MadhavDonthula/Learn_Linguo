@@ -50,6 +50,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     #'django.middleware.csrf.CsrfViewMiddleware',
@@ -137,15 +139,13 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 # Ensure that DEBUG is set to True in development:
 DEBUG = True
 
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-    # Add other paths if needed
-]
+
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10 MB
