@@ -23,5 +23,18 @@
         <p>No assignments found for this class code.</p>
       {% endif %}
     </div>
+
+    <h1>Flashcards</h1>
+    <div class="container">
+      {% if flashcard_sets %} {% for flashcard_set in flashcard_sets %}
+      <div
+        class="box"
+        onClick="window.location.href='{% url 'flashcards' flashcard_set.id %}'">
+        <h4>{{ flashcard_set.name }}</h4>
+      </div>
+      {% endfor %} {% else %}
+      <p class="no-sets">No flashcard sets found.</p>
+      {% endif %}
+    </div>
   </body>
 </html>

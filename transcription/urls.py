@@ -8,7 +8,6 @@ urlpatterns = [
     path("login/", views.loginPage, name="login"),
     path("logout/", views.logoutUser, name="logout"),
 
-    path("flashcards", views.flashcard_sets, name="flashcard_sets"),  
     path("flashcards/<int:set_id>/", views.flashcards, name="flashcards"), 
     path("check_pronunciation/", views.check_pronunciation, name="check_pronunciation"),  
 

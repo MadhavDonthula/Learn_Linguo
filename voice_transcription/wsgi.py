@@ -24,3 +24,4 @@ application = WhiteNoise(application, root=os.path.join(os.path.dirname(__file__
 
 # Alias for the WSGI application
 app = application
+

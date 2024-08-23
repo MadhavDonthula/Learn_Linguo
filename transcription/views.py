@@ -45,15 +45,16 @@ def logoutUser(request):
     return redirect("login")
 
 
-@login_required(login_url="login")
 
+@login_required(login_url="login")
 def home(request):
     if request.method == "POST":
         code = request.POST.get("class_code").upper()  # Convert code to uppercase
         try:
             class_code = ClassCode.objects.get(code=code)
             assignments = [class_code.assignment]
-            return render(request, 'transcription/index.html', {'assignments': assignments})
+            flashcard_sets = [class_code.flashcard_set]
+            return render(request, 'transcription/index.html', {'assignments': assignments, "flashcard_sets": flashcard_sets})
         except ClassCode.DoesNotExist:
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
     return render(request, 'transcription/home.html')
@@ -147,10 +148,8 @@ def recording(request, assignment_id, question_id):
     question = get_object_or_404(QuestionAnswer, id=question_id)
     return render(request, "transcription/recording.html", {"assignment": assignment, "question": question})
 
-@login_required(login_url="login")
-def flashcard_sets(request):
-    flashcard_sets = FlashcardSet.objects.all()
-    return render(request, 'transcription/flashcard_sets.html', {'flashcard_sets': flashcard_sets})
+
+
 @login_required(login_url="login")
 def flashcards(request, set_id):
     flashcard_set = get_object_or_404(FlashcardSet, id=set_id)

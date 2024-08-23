@@ -26,6 +26,9 @@ class QuestionAnswer(models.Model):
 class ClassCode(models.Model):
     code = models.CharField(max_length=10, unique=True)
     assignment = models.ForeignKey(Assignment, related_name="class_codes", on_delete=models.CASCADE)
+    flashcard_set = models.ForeignKey("FlashcardSet", related_name="class_codes", on_delete=models.CASCADE, default=1)  # Replace 1 with the ID of your default FlashcardSet
+
+
 
     def __str__(self):
         return self.code
