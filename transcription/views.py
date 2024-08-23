@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 import base64
 import string
 from django.http import HttpResponse, JsonResponse
-from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment
+from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, Transcription, UserClassEnrollment, UserFlashcardProgress
 from django.contrib.auth.forms import UserCreationForm
 from django.views.decorators.csrf import csrf_protect
 from .forms import CreateUserForm
@@ -10,10 +10,13 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from tempfile import NamedTemporaryFile
-from openai import OpenAI
+from django.shortcuts import render
+from django.contrib.admin.views.decorators import staff_member_required
+from .models import ClassCode, UserClassEnrollment, UserFlashcardProgress, Assignment
+from django.http import JsonResponse
 
-# Initialize OpenAI client (replace with your actual API key)
-client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
+
+from openai import OpenAI
 
 def registerPage(request):
     form = CreateUserForm()
@@ -31,12 +34,14 @@ def loginPage(request):
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
+    
         user = authenticate(request, username=username, password=password)
         if user is not None: 
             login(request, user)
             return redirect("home")
         else: 
             messages.info(request, "Username or password is incorrect")
+
     context = {}
     return render(request, "transcription/login.html", context)
 
@@ -47,13 +52,9 @@ def logoutUser(request):
 @login_required(login_url="login")
 def home(request):
     if hasattr(request.user, 'class_enrollments') and request.user.class_enrollments.exists():
-        # Get the last enrolled class code
         class_code = request.user.class_enrollments.last().class_code
-        
-        # Get related assignments and flashcard sets
-        assignments = class_code.assignments.all()  # Changed to access related assignments
-        flashcard_sets = class_code.flashcard_sets.all()  # Changed to access related flashcard sets
-
+        assignments = class_code.assignments.all()
+        flashcard_sets = class_code.flashcard_sets.all()
         return render(request, 'transcription/index.html', {'assignments': assignments, 'flashcard_sets': flashcard_sets})
 
     if request.method == "POST":
@@ -62,16 +63,14 @@ def home(request):
             class_code = ClassCode.objects.get(code=code)
             if not UserClassEnrollment.objects.filter(user=request.user, class_code=class_code).exists():
                 UserClassEnrollment.objects.create(user=request.user, class_code=class_code)
-            
-            # Get related assignments and flashcard sets
-            assignments = class_code.assignments.all()  # Changed to access related assignments
-            flashcard_sets = class_code.flashcard_sets.all()  # Changed to access related flashcard sets
-            
-            return render(request, 'transcription/index.html', {'assignments': assignments, 'flashcard_sets': flashcard_sets})
+            assignments = class_code.assignments.all()
+            flashcard_sets = class_code.flashcard_sets.all()
+            return render(request, 'transcription/index.html', {'assignments': assignments, "flashcard_sets": flashcard_sets})
         except ClassCode.DoesNotExist:
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
     
     return render(request, 'transcription/home.html')
+
 @login_required(login_url="login")
 def index(request, assignment_id=None):
     if assignment_id:
@@ -103,6 +102,9 @@ def save_audio(request):
                     temp_audio_file.write(audio_bytes)
                     temp_audio_file.flush()
                     
+                    # Initialize the OpenAI client
+                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
+
                     # Transcribe the audio with Whisper API
                     with open(temp_audio_file.name, "rb") as wav_file:
                         transcription = client.audio.transcriptions.create(
@@ -164,12 +166,39 @@ def flashcards(request, set_id):
     flashcard_set = get_object_or_404(FlashcardSet, id=set_id)
     flashcards = flashcard_set.flashcards.all()
     current_flashcard = flashcards.first() if flashcards else None
+
+    # Get or create the user's progress on this flashcard set
+    user_progress, created = UserFlashcardProgress.objects.get_or_create(
+        user=request.user,
+        flashcard_set=flashcard_set
+    )
+
+    if request.method == "POST":
+        flashcard_id = request.POST.get("flashcard_id")
+        if flashcard_id:
+            flashcard = get_object_or_404(Flashcard, id=flashcard_id)
+
+            # Increment the completed flashcards count
+            user_progress.completed_flashcards += 1
+            user_progress.save()
+
+            # Get the next flashcard or show completion message
+            next_flashcard = flashcards.filter(id__gt=flashcard_id).first()
+            if next_flashcard:
+                current_flashcard = next_flashcard
+            else:
+                current_flashcard = None  # This means all flashcards are completed
+
+    # Calculate the completion percentage
+    total_flashcards = flashcards.count()
+    completion_percentage = (user_progress.completed_flashcards / total_flashcards) * 100 if total_flashcards > 0 else 0
+
     return render(request, 'transcription/flashcards.html', {
         'flashcard_set': flashcard_set,
         'flashcards': flashcards,
         'flashcard': current_flashcard,
+        'completion_percentage': round(completion_percentage, 2),
     })
-
 def check_pronunciation(request):
     if request.method == "POST":
         audio_data = request.POST.get("audio_data", "")
@@ -188,6 +217,9 @@ def check_pronunciation(request):
                 with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
                     temp_audio_file.write(audio_bytes)
                     temp_audio_file.flush()
+
+                    # Initialize the OpenAI client
+                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")  # Replace with your actual API key
 
                     # Transcribe the audio with Whisper API
                     with open(temp_audio_file.name, "rb") as media_file:
@@ -212,3 +244,103 @@ def check_pronunciation(request):
         except Exception as e:
             return JsonResponse({"error": str(e)})
     return JsonResponse({"error": "No audio data received"})
+
+
+def save_flashcard_progress(request):
+    if request.method == "POST":
+        flashcard_set_id = request.POST.get("flashcard_set_id", "")
+        flashcard_id = request.POST.get("flashcard_id", "")
+        completed = request.POST.get("completed", "")
+
+        if not (flashcard_set_id.isdigit() and flashcard_id.isdigit()):
+            return JsonResponse({"error": "Invalid ID format"})
+        
+        flashcard_set_id = int(flashcard_set_id)
+        flashcard_id = int(flashcard_id)
+
+        try:
+            flashcard_set = get_object_or_404(FlashcardSet, id=flashcard_set_id)
+            flashcard = get_object_or_404(Flashcard, id=flashcard_id, flashcard_set=flashcard_set)
+
+            # Update user progress
+            user_progress, created = UserFlashcardProgress.objects.get_or_create(
+                user=request.user,
+                flashcard_set=flashcard_set
+            )
+            
+            if completed == "true":
+                user_progress.completed_flashcards.add(flashcard)
+            else:
+                user_progress.completed_flashcards.remove(flashcard)
+
+            user_progress.save()
+
+            return JsonResponse({"status": "success"})
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)})
+
+    return JsonResponse({"error": "Invalid request method"})
+# views.py
+
+def update_progress(request):
+    if request.method == "POST":
+        try:
+            # Extract data from the request
+            data = json.loads(request.body)
+            user_id = data.get('user_id')
+            flashcard_set_id = data.get('flashcard_set_id')
+            percentage = data.get('percentage')
+
+            # Get or create the user's flashcard progress record
+            user_progress, created = UserFlashcardProgress.objects.get_or_create(
+                user_id=user_id,
+                flashcard_set_id=flashcard_set_id
+            )
+
+            # Calculate the number of completed flashcards based on percentage
+            flashcard_set = FlashcardSet.objects.get(id=flashcard_set_id)
+            total_flashcards = flashcard_set.flashcards.count()
+            completed_flashcards = int((percentage / 100) * total_flashcards)
+
+            # Update the progress
+            user_progress.completed_flashcards = completed_flashcards
+            user_progress.save()
+
+            return JsonResponse({'status': 'success', 'message': 'Progress updated successfully'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+@login_required(login_url="login")
+def update_progress(request):
+    if request.method == "POST":
+        try:
+            import json
+            data = json.loads(request.body)
+            user_id = data.get('user_id')
+            flashcard_set_id = data.get('flashcard_set_id')
+            percentage = data.get('percentage')
+
+            if not (user_id and flashcard_set_id is not None):
+                return JsonResponse({'error': 'Missing data'}, status=400)
+
+            # Get or create the user's progress on this flashcard set
+            user_progress, created = UserFlashcardProgress.objects.get_or_create(
+                user_id=user_id,
+                flashcard_set_id=flashcard_set_id
+            )
+
+            # Calculate the completed flashcards based on the percentage received
+            total_flashcards = Flashcard.objects.filter(flashcard_set_id=flashcard_set_id).count()
+            completed_flashcards = int((percentage / 100) * total_flashcards)
+
+            # Update the completed flashcards count
+            user_progress.completed_flashcards = completed_flashcards
+            user_progress.save()
+
+            return JsonResponse({'status': 'success'}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Invalid request method'}, status=405)

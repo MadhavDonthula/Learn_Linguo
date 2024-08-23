@@ -1,0 +1,38 @@
+{% load static custom_filters %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Code Progress</title>
+    <link rel="stylesheet" href="{% static 'transcription/table.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>Class Code Progress for {{ class_code }}</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    
+                    {% for flashcard_set in flashcard_sets %}
+                        <th>{{ flashcard_set.name }} (Flashcards)</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data %}
+                    <tr>
+                        <td>{{ row.username }}</td>
+                       
+                        {% for flashcard_set in flashcard_sets %}
+                            <td>{{ row|get_item:flashcard_set.name }}</td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

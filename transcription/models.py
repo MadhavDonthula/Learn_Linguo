@@ -34,12 +34,14 @@ class ClassCode(models.Model):
 
     def save(self, *args, **kwargs):
         # Ensure that at least one assignment and one flashcard set are associated with this class code
-
+        if not self.assignments.exists() or not self.flashcard_sets.exists():
+            raise ValueError("Class code must be associated with at least one assignment and one flashcard set")
         super().save(*args, **kwargs)
 
 class UserClassEnrollment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='class_enrollments')
     class_code = models.ForeignKey(ClassCode, on_delete=models.CASCADE, related_name='user_enrollments')
+    flashcard_progress = models.JSONField(default=dict, blank=True)  # Track flashcard progress
 
     def __str__(self):
         return f"{self.user.username} enrolled in {self.class_code.code}"
@@ -75,3 +77,15 @@ class Flashcard(models.Model):
 
     def __str__(self):
         return f"{self.french_word} - {self.english_translation}"
+
+class UserFlashcardProgress(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    flashcard_set = models.ForeignKey(FlashcardSet, on_delete=models.CASCADE)
+    completed_flashcards = models.IntegerField(default=0)
+    
+    class Meta:
+        unique_together = ('user', 'flashcard_set')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.flashcard_set.name}"
+
