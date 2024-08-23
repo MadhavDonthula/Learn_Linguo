@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 import base64
 import string
 from django.http import HttpResponse, JsonResponse
-from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, Transcription
+from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, Transcription, UserClassEnrollment
 from django.contrib.auth.forms import UserCreationForm
 from django.views.decorators.csrf import csrf_protect
 from .forms import CreateUserForm
@@ -12,6 +12,8 @@ from django.contrib import messages
 from tempfile import NamedTemporaryFile
 
 from openai import OpenAI
+
+
 
 def registerPage(request):
     form = CreateUserForm()
@@ -48,16 +50,26 @@ def logoutUser(request):
 
 @login_required(login_url="login")
 def home(request):
+    if hasattr(request.user, 'class_enrollments') and request.user.class_enrollments.exists():
+        class_code = request.user.class_enrollments.last().class_code
+        assignments = [class_code.assignment]
+        flashcard_sets = [class_code.flashcard_set]
+        return render(request, 'transcription/index.html', {'assignments': assignments, 'flashcard_sets': flashcard_sets})
+
     if request.method == "POST":
-        code = request.POST.get("class_code").upper()  # Convert code to uppercase
+        code = request.POST.get("class_code").upper()
         try:
             class_code = ClassCode.objects.get(code=code)
+            if not UserClassEnrollment.objects.filter(user=request.user, class_code=class_code).exists():
+                UserClassEnrollment.objects.create(user=request.user, class_code=class_code)
             assignments = [class_code.assignment]
             flashcard_sets = [class_code.flashcard_set]
             return render(request, 'transcription/index.html', {'assignments': assignments, "flashcard_sets": flashcard_sets})
         except ClassCode.DoesNotExist:
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
+    
     return render(request, 'transcription/home.html')
+
 
 @login_required(login_url="login")
 def index(request, assignment_id=None):

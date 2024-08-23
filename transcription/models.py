@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 import re
+
 class Transcription(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='transcriptions', null=True, blank=True)
     audio_file = models.FileField(upload_to="audio/")
@@ -26,13 +27,17 @@ class QuestionAnswer(models.Model):
 class ClassCode(models.Model):
     code = models.CharField(max_length=10, unique=True)
     assignment = models.ForeignKey(Assignment, related_name="class_codes", on_delete=models.CASCADE)
-    flashcard_set = models.ForeignKey("FlashcardSet", related_name="class_codes", on_delete=models.CASCADE, default=1)  # Replace 1 with the ID of your default FlashcardSet
-
-
+    flashcard_set = models.ForeignKey("FlashcardSet", related_name="class_codes", on_delete=models.CASCADE)
 
     def __str__(self):
         return self.code
 
+class UserClassEnrollment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='class_enrollments')
+    class_code = models.ForeignKey(ClassCode, on_delete=models.CASCADE, related_name='user_enrollments')
+
+    def __str__(self):
+        return f"{self.user.username} enrolled in {self.class_code.code}"
 class FlashcardSet(models.Model):
     name = models.CharField(max_length=100)
     bulk_flashcards = models.TextField(max_length=100000, blank=True)

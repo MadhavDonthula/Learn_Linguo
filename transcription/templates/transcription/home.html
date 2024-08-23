@@ -28,9 +28,12 @@
     <div class="navbar-container">
       <div class="logo"></div>
       <div class="navbar">
-       <span id="hello-msg"> Hello, {{request.user}} </span>
-         <a href="{% url "logout" %}"> Logout </a>
-      </div>
+        <span>Hello, {{ request.user.username }}</span>
+        {% if user_class_code %}
+            <span>Class Code: {{ user_class_code.code }}</span>
+        {% endif %}
+        <a href="{% url 'logout' %}">Logout</a>
+    </div>
     </div>
     <div class="input-container">
       <form method="post">
@@ -54,7 +57,7 @@
           </div>
         </div>
         {% if error %}
-        <p class="error">{{ error }}</p>
+        <p class="error"> {{ error }} </p>
         {% endif %}
       </form>
     </div>
