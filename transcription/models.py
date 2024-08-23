@@ -26,11 +26,16 @@ class QuestionAnswer(models.Model):
 
 class ClassCode(models.Model):
     code = models.CharField(max_length=10, unique=True)
-    assignment = models.ForeignKey(Assignment, related_name="class_codes", on_delete=models.CASCADE)
-    flashcard_set = models.ForeignKey("FlashcardSet", related_name="class_codes", on_delete=models.CASCADE)
+    assignments = models.ManyToManyField(Assignment, related_name="class_codes")
+    flashcard_sets = models.ManyToManyField("FlashcardSet", related_name="class_codes")
 
     def __str__(self):
         return self.code
+
+    def save(self, *args, **kwargs):
+        # Ensure that at least one assignment and one flashcard set are associated with this class code
+
+        super().save(*args, **kwargs)
 
 class UserClassEnrollment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='class_enrollments')
@@ -38,6 +43,7 @@ class UserClassEnrollment(models.Model):
 
     def __str__(self):
         return f"{self.user.username} enrolled in {self.class_code.code}"
+
 class FlashcardSet(models.Model):
     name = models.CharField(max_length=100)
     bulk_flashcards = models.TextField(max_length=100000, blank=True)

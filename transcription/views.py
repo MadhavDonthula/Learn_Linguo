@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 import base64
 import string
 from django.http import HttpResponse, JsonResponse
-from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, Transcription, UserClassEnrollment
+from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment
 from django.contrib.auth.forms import UserCreationForm
 from django.views.decorators.csrf import csrf_protect
 from .forms import CreateUserForm
@@ -10,10 +10,10 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from tempfile import NamedTemporaryFile
-
 from openai import OpenAI
 
-
+# Initialize OpenAI client (replace with your actual API key)
+client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
 
 def registerPage(request):
     form = CreateUserForm()
@@ -31,14 +31,12 @@ def loginPage(request):
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
-    
         user = authenticate(request, username=username, password=password)
         if user is not None: 
             login(request, user)
             return redirect("home")
         else: 
             messages.info(request, "Username or password is incorrect")
-
     context = {}
     return render(request, "transcription/login.html", context)
 
@@ -46,14 +44,16 @@ def logoutUser(request):
     logout(request)
     return redirect("login")
 
-
-
 @login_required(login_url="login")
 def home(request):
     if hasattr(request.user, 'class_enrollments') and request.user.class_enrollments.exists():
+        # Get the last enrolled class code
         class_code = request.user.class_enrollments.last().class_code
-        assignments = [class_code.assignment]
-        flashcard_sets = [class_code.flashcard_set]
+        
+        # Get related assignments and flashcard sets
+        assignments = class_code.assignments.all()  # Changed to access related assignments
+        flashcard_sets = class_code.flashcard_sets.all()  # Changed to access related flashcard sets
+
         return render(request, 'transcription/index.html', {'assignments': assignments, 'flashcard_sets': flashcard_sets})
 
     if request.method == "POST":
@@ -62,15 +62,16 @@ def home(request):
             class_code = ClassCode.objects.get(code=code)
             if not UserClassEnrollment.objects.filter(user=request.user, class_code=class_code).exists():
                 UserClassEnrollment.objects.create(user=request.user, class_code=class_code)
-            assignments = [class_code.assignment]
-            flashcard_sets = [class_code.flashcard_set]
-            return render(request, 'transcription/index.html', {'assignments': assignments, "flashcard_sets": flashcard_sets})
+            
+            # Get related assignments and flashcard sets
+            assignments = class_code.assignments.all()  # Changed to access related assignments
+            flashcard_sets = class_code.flashcard_sets.all()  # Changed to access related flashcard sets
+            
+            return render(request, 'transcription/index.html', {'assignments': assignments, 'flashcard_sets': flashcard_sets})
         except ClassCode.DoesNotExist:
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
     
     return render(request, 'transcription/home.html')
-
-
 @login_required(login_url="login")
 def index(request, assignment_id=None):
     if assignment_id:
@@ -102,9 +103,6 @@ def save_audio(request):
                     temp_audio_file.write(audio_bytes)
                     temp_audio_file.flush()
                     
-                    # Initialize the OpenAI client
-                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
-
                     # Transcribe the audio with Whisper API
                     with open(temp_audio_file.name, "rb") as wav_file:
                         transcription = client.audio.transcriptions.create(
@@ -155,12 +153,11 @@ def compare_texts(transcribed_text, answer):
     score = len(correct_words) / len(answer_words) * 100
     return ", ".join(missing_words), round(score, 2)
 
+@login_required(login_url="login")
 def recording(request, assignment_id, question_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     question = get_object_or_404(QuestionAnswer, id=question_id)
     return render(request, "transcription/recording.html", {"assignment": assignment, "question": question})
-
-
 
 @login_required(login_url="login")
 def flashcards(request, set_id):
@@ -192,9 +189,6 @@ def check_pronunciation(request):
                     temp_audio_file.write(audio_bytes)
                     temp_audio_file.flush()
 
-                    # Initialize the OpenAI client
-                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")  # Replace with your actual API key
-
                     # Transcribe the audio with Whisper API
                     with open(temp_audio_file.name, "rb") as media_file:
                         response = client.audio.transcriptions.create(
@@ -218,54 +212,3 @@ def check_pronunciation(request):
         except Exception as e:
             return JsonResponse({"error": str(e)})
     return JsonResponse({"error": "No audio data received"})
-def save_audio(request):
-    try:
-        if request.method == "POST":
-            audio_data = request.POST.get('audio_data', None)
-            assignment_id = request.POST.get('assignment_id', None)
-            question_id = request.POST.get('question_id', None)
-
-            if audio_data:
-                # Decode the base64 encoded audio data
-                audio_bytes = base64.b64decode(audio_data)
-
-                # Create a temporary file to hold the audio
-                with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
-                    temp_audio_file.write(audio_bytes)
-                    temp_audio_file.flush()
-                    
-                    # Initialize the OpenAI client
-                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
-
-                    # Transcribe the audio with Whisper API
-                    with open(temp_audio_file.name, "rb") as wav_file:
-                        transcription = client.audio.transcriptions.create(
-                            model="whisper-1",
-                            file=wav_file,
-                            response_format="text"
-                        )
-
-                transcribed_text = transcription.strip()
-                assignment = get_object_or_404(Assignment, id=assignment_id)
-                selected_question = get_object_or_404(QuestionAnswer, id=question_id, assignment=assignment)
-                selected_answer = selected_question.answer
-
-                # If there's no reference answer, use an empty string
-                reference_answer = selected_answer if selected_answer else ""
-
-                # Compare the transcribed text with the reference answer
-                score = compare_texts(transcribed_text, reference_answer)
-
-                return render(request, 'transcription/result.html', {
-                    "transcribed_text": transcribed_text,
-                    'answer': reference_answer,
-                    'score': score,
-                    'assignment': assignment,
-                    'question': selected_question,
-                })
-            else:
-                return HttpResponse("Error: Invalid audio data format")
-        else:
-            return HttpResponse("Invalid request method")
-    except Exception as e:
-        return HttpResponse(f"Error: {str(e)}")
