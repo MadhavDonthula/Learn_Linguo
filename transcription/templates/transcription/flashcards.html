@@ -19,7 +19,39 @@
             z-index: 1000;
         }
 
-     
+        .congratulations-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            border: 2px solid #ccc;
+            padding: 20px;
+            text-align: center;
+            z-index: 1001;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .congratulations-popup h1 {
+            margin-bottom: 20px;
+            color: black;
+        }
+
+        .restart-button {
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .restart-button:hover {
+            background-color: #218838;
+        }
     </style>
 </head>
 <body>
@@ -40,28 +72,31 @@
     <div class="next-arrow" id="next-arrow">➡️</div>
     <div class="loading" id="loading">Loading...</div>
     <div class="completion-indicator" id="completion-indicator">{{ completion_percentage }}% Completed</div>
+    
+    <!-- Congratulations Popup -->
+    <div class="congratulations-popup" id="congratulations-popup">
+        <h1>Congratulations! You finished: {{ flashcard_set.name }}</h1>
+        <button class="restart-button" id="restart-button">Restart</button>
+    </div>
+
     <form id="audioForm" method="POST" style="display: none">
         {% csrf_token %}
         <input type="hidden" name="audio_data" id="audio_data" />
         <input type="hidden" name="flashcard_id" id="flashcard_id" value="{{ flashcard.id }}" />
+        <input type="hidden" name="flashcard_set_id" id="flashcard_set_id" value="{{ flashcard_set.id }}" />
     </form>
 
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
     <script>
         let isRecording = false;
-        let mediaRecorder;
-        let audioChunks = [];
-        let attemptCount = 0;
         let currentFlashcardIndex = 0;
-        const maxAttempts = 2;
 
         const micDiv = document.getElementById("mic");
-        const checkmark = document.getElementById("checkmark");
-        const wrong = document.getElementById("wrong");
         const flashcard = document.getElementById("flashcard");
         const nextArrow = document.getElementById("next-arrow");
-        const loading = document.getElementById("loading");
-        const transcribedText = document.getElementById("transcribed-text");
         const completionIndicator = document.getElementById("completion-indicator");
+        const congratulationsPopup = document.getElementById("congratulations-popup");
+        const restartButton = document.getElementById("restart-button");
 
         const flashcards = [
             {% for flashcard in flashcards %}
@@ -78,58 +113,22 @@
             document.getElementById('french-word').textContent = currentFlashcard.french_word;
             document.getElementById('english-translation').textContent = currentFlashcard.english_translation;
             document.getElementById('flashcard_id').value = currentFlashcard.id;
+            document.getElementById('flashcard_set_id').value = "{{ flashcard_set.id }}";
             resetUI();
             updateCompletionPercentage();
             saveFlashcardIndex();
         }
 
         function saveFlashcardIndex() {
-            localStorage.setItem('currentFlashcardIndex', currentFlashcardIndex);
+            localStorage.setItem('currentFlashcardIndex_{{ flashcard_set.id }}', currentFlashcardIndex);
         }
 
         function loadFlashcardIndex() {
-            const savedIndex = localStorage.getItem('currentFlashcardIndex');
+            const savedIndex = localStorage.getItem('currentFlashcardIndex_{{ flashcard_set.id }}');
             if (savedIndex !== null) {
                 currentFlashcardIndex = parseInt(savedIndex, 10);
             }
         }
-
-        micDiv.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            if (!isRecording) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    mediaRecorder.ondataavailable = (event) => {
-                        audioChunks.push(event.data);
-                    };
-                    mediaRecorder.onstop = () => {
-                        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-                        const reader = new FileReader();
-                        reader.readAsDataURL(audioBlob);
-                        reader.onloadend = () => {
-                            const base64String = reader.result.split(',')[1];
-                            document.getElementById("audio_data").value = base64String;
-                            checkPronunciation(base64String);
-                        };
-                    };
-                    mediaRecorder.start();
-                    isRecording = true;
-                    micDiv.classList.add("recording");
-                } catch (error) {
-                    console.error("Error accessing audio", error);
-                }
-            } else {
-                if (mediaRecorder) {
-                    mediaRecorder.stop();
-                    isRecording = false;
-                    micDiv.classList.remove("recording");
-                    attemptCount++;
-                    loading.style.display = "block";
-                }
-            }
-        });
 
         flashcard.addEventListener("click", () => {
             if (!isRecording) {
@@ -137,71 +136,16 @@
             }
         });
 
-        function checkPronunciation(audioData) {
-            const form = document.getElementById("audioForm");
-            const formData = new FormData(form);
-
-            fetch("{% url 'check_pronunciation' %}", {
-                method: "POST",
-                body: formData,
-                headers: {
-                    "X-CSRFToken": formData.get("csrfmiddlewaretoken"),
-                },
-            })
-            .then((response) => response.json())
-            .then((data) => {
-                loading.style.display = "none";
-                if (data.correct) {
-                    showCheckmark();
-                } else {
-                    showWrong(data.transcribed_text);
-                }
-            })
-            .catch((error) => {
-                console.error("Error:", error);
-                loading.style.display = "none";
-            });
-        }
-
-        function showCheckmark() {
-            checkmark.classList.add("show");
-            nextArrow.classList.add("show");
-            transcribedText.textContent = "";
-            transcribedText.style.display = "none";
-            resetMic();
-        }
-
-        function showWrong(transcribed) {
-            wrong.classList.add("show");
-            transcribedText.textContent = `You said: ${transcribed}`;
-            transcribedText.style.display = "block";
-            if (attemptCount >= maxAttempts) {
-                nextArrow.classList.add("show");
-                resetMic();
-            }
-        }
-
-        function resetMic() {
-            micDiv.classList.remove("recording");
-            isRecording = false;
-            audioChunks = [];
-            attemptCount = 0;
-        }
-
         function resetUI() {
-            checkmark.classList.remove("show");
-            wrong.classList.remove("show");
-            nextArrow.classList.remove("show");
-            transcribedText.style.display = "none";
+            nextArrow.classList.add("show");
             flashcard.classList.remove("flipped");
-            resetMic();
         }
 
         function updateCompletionPercentage() {
             const percentage = Math.round(((currentFlashcardIndex + 1) / flashcards.length) * 100);
             completionIndicator.textContent = `${percentage}% Completed`;
         
-            // Send the updated percentage to the server
+            // Send update request for every progress change
             fetch("{% url 'update_progress' %}", {
                 method: "POST",
                 headers: {
@@ -209,26 +153,43 @@
                     "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
                 },
                 body: JSON.stringify({
-                    user_id: "{{ user.id }}", // Include user ID
-                    flashcard_set_id: "{{ flashcard_set.id }}", // Include flashcard set ID
+                    user_id: "{{ user.id }}",
+                    flashcard_set_id: "{{ flashcard_set.id }}",
                     percentage: percentage
                 })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.status !== "success") {
+                if (data.status === "success") {
+                    console.log("Progress updated successfully.");
+                } else {
                     console.error("Failed to update progress");
                 }
             })
             .catch(error => console.error("Error:", error));
-        }
         
+            if (percentage === 100) {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { x: 0.5, y: 0.5 }
+                });
+                congratulationsPopup.style.display = "block";
+            }
+        }
+
+
         nextArrow.addEventListener("click", () => {
             currentFlashcardIndex = (currentFlashcardIndex + 1) % flashcards.length;
             updateFlashcard();
         });
 
-        // Load saved flashcard index and initialize the first flashcard
+        restartButton.addEventListener("click", () => {
+            currentFlashcardIndex = 0;
+            updateFlashcard();
+            congratulationsPopup.style.display = "none";
+        });
+
         loadFlashcardIndex();
         updateFlashcard();
     </script>

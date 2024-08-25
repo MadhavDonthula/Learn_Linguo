@@ -1,0 +1,12 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1>Select Class for {{ user.username }}</h1>
+<form method="post">{% csrf_token %}
+    <select name="class_code">
+        {% for class_code in class_codes %}
+        <option value="{{ class_code.id }}">{{ class_code.code }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="button">View Progress</button>
+</form>
+{% endblock %}

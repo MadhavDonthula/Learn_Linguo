@@ -14,20 +14,16 @@
         <table>
             <thead>
                 <tr>
-                    <th>Username</th>
-                    
-                    {% for flashcard_set in flashcard_sets %}
-                        <th>{{ flashcard_set.name }} (Flashcards)</th>
+                    {% for header in headers %}
+                        <th>{{ header }}</th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
                 {% for row in data %}
                     <tr>
-                        <td>{{ row.username }}</td>
-                       
-                        {% for flashcard_set in flashcard_sets %}
-                            <td>{{ row|get_item:flashcard_set.name }}</td>
+                        {% for header in headers %}
+                            <td>{{ row|dict_item:header }}</td>
                         {% endfor %}
                     </tr>
                 {% endfor %}

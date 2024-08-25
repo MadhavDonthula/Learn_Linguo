@@ -1,8 +1,13 @@
 from django.contrib import admin, messages
-from django.urls import path
-from django.shortcuts import render
+from django.urls import path, reverse
+from django.shortcuts import render, redirect
 from django.http import Http404
+from django.utils.html import format_html
 from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment
+from django.contrib.auth.models import User
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.shortcuts import render, get_object_or_404
+
 
 # Register models
 admin.site.register(Assignment)
@@ -24,11 +29,24 @@ class FlashcardAdmin(admin.ModelAdmin):
 
 class ClassCodeAdmin(admin.ModelAdmin):
     filter_horizontal = ('assignments', 'flashcard_sets')
+    list_display = ('get_class_name', 'get_class_code', 'view_progress_link')
+
+    def get_class_name(self, obj):
+        return f"Class with Code: {obj.code}"
+    get_class_name.short_description = 'Class Name'
+
+    def get_class_code(self, obj):
+        return obj.code
+    get_class_code.short_description = 'Class Code'
+
+    def view_progress_link(self, obj):
+        url = reverse('admin:class_code_progress', args=[obj.id])
+        return format_html('<a class="button" href="{}">View Progress</a>', url)
+    view_progress_link.short_description = 'Class Progress'
+    view_progress_link.allow_tags = True
 
     def save_model(self, request, obj, form, change):
-        # Ensure that at least one assignment and one flashcard set are associated with this class code
         if not obj.assignments.exists() or not obj.flashcard_sets.exists():
-            self.message_user(request, "Class code must be associated with at least one assignment and one flashcard set", level=messages.ERROR)
             return
         super().save_model(request, obj, form, change)
 
@@ -39,70 +57,93 @@ class ClassCodeAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-# Define the class_code_progress_view outside of ClassCodeAdmin
+# Register ClassCodeAdmin
+admin.site.register(ClassCode, ClassCodeAdmin)
 def class_code_progress_view(request, class_code_id):
     try:
         class_code = ClassCode.objects.get(id=class_code_id)
     except ClassCode.DoesNotExist:
         raise Http404("Class code not found")
 
-    assignments = class_code.assignments.all()
     flashcard_sets = class_code.flashcard_sets.all()
-    students = UserClassEnrollment.objects.filter(class_code=class_code)
+    students = UserClassEnrollment.objects.filter(class_code=class_code).select_related('user')
 
     data = []
-    for enrollment in students:
-        student = enrollment.user
-        row = {'username': student.username}
+    headers = ['Username']  # Initialize headers with 'Username'
+    
+    for flashcard_set in flashcard_sets:
+        headers.append(flashcard_set.name)
 
-        # Process assignment progress
-        for assignment in assignments:
-            progress = UserFlashcardProgress.objects.filter(user=student, flashcard_set__in=flashcard_sets).first()
-            if progress:
-                total_flashcards = Flashcard.objects.filter(flashcard_set__in=flashcard_sets).count()
-                if total_flashcards > 0:
-                    completion_percentage = (progress.completed_flashcards / total_flashcards) * 100
-                    row[assignment.name] = f"{completion_percentage:.2f}%"
-                else:
-                    row[assignment.name] = 'No flashcards'
-            else:
-                row[assignment.name] = 'Not started'
+    for student in students:
+        student_progress = {'Username': student.user.username}
 
-        # Process flashcard progress
         for flashcard_set in flashcard_sets:
-            progress = UserFlashcardProgress.objects.filter(user=student, flashcard_set=flashcard_set).first()
-            if progress:
-                total_flashcards = Flashcard.objects.filter(flashcard_set=flashcard_set).count()
-                if total_flashcards > 0:
-                    completion_percentage = (progress.completed_flashcards / total_flashcards) * 100
-                    row[flashcard_set.name] = f"{completion_percentage:.2f}%"
-                else:
-                    row[flashcard_set.name] = 'No flashcards'
+            progress = UserFlashcardProgress.objects.filter(user=student.user, flashcard_set=flashcard_set).first()
+            if progress is None:
+                student_progress[flashcard_set.name] = 'Not started'
             else:
-                row[flashcard_set.name] = 'Not started'
-
-        data.append(row)
+                if progress.has_completed:
+                    student_progress[flashcard_set.name] = "100%"
+                elif progress.completed_percentage is not None:
+                    student_progress[flashcard_set.name] = f"{round(progress.completed_percentage)}%"
+                else:
+                    student_progress[flashcard_set.name] = 'In progress'
+    
+        data.append(student_progress)
 
     context = {
         'class_code': class_code,
         'data': data,
-        'assignments': assignments,
-        'flashcard_sets': flashcard_sets,
+        'headers': headers,
     }
     return render(request, 'transcription/class_code_progress.html', context)
 
-# Register ClassCodeAdmin
-admin.site.register(ClassCode, ClassCodeAdmin)
+# User admin with class progress link
+class UserAdmin(BaseUserAdmin):
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:user_id>/class-progress/', self.admin_site.admin_view(select_class_view), name='select_class'),
+        ]
+        return custom_urls + urls
 
-# Optional: Register UserFlashcardProgressAdmin
+    def class_progress_link(self, obj):
+        url = reverse('admin:select_class', args=[obj.id])
+        return format_html('<a class="button" href="{}">Class Progress</a>', url)
+    class_progress_link.short_description = 'Class Progress'
+    class_progress_link.allow_tags = True
+
+    list_display = BaseUserAdmin.list_display + ('class_progress_link',)
+
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
+
+# Define the select_class_view function
+def select_class_view(request, user_id):
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        raise Http404("User not found")
+
+    if request.method == "POST":
+        class_code_id = request.POST.get("class_code")
+        return redirect(reverse('admin:class_code_progress', args=[class_code_id]))
+
+    class_codes = ClassCode.objects.filter(user_enrollments__user=user)
+    return render(request, 'admin/select_class.html', {'user': user, 'class_codes': class_codes})
+
 @admin.register(UserFlashcardProgress)
 class UserFlashcardProgressAdmin(admin.ModelAdmin):
-    list_display = ('user', 'flashcard_set', 'completed_flashcards')
-    list_filter = ('user', 'flashcard_set')
+    list_display = ('user', 'flashcard_set', 'completed_flashcards', 'has_completed')
+    list_filter = ('user', 'flashcard_set', 'has_completed')
     search_fields = ('user__username', 'flashcard_set__name')
 
     def save_model(self, request, obj, form, change):
         if obj.completed_flashcards < 0:
             self.message_user(request, "Completed flashcards cannot be negative", level=messages.ERROR)
             return
+        if not obj.has_completed:
+            # If progress is marked as completed, ensure completed_flashcards reflects total flashcards
+            if obj.completed_flashcards >= Flashcard.objects.filter(flashcard_set=obj.flashcard_set).count():
+                obj.mark_completed()
         super().save_model(request, obj, form, change)
