@@ -166,7 +166,12 @@ def flashcards(request, set_id):
 
     user_progress, created = UserFlashcardProgress.objects.get_or_create(
         user=request.user,
-        flashcard_set=flashcard_set
+        flashcard_set=flashcard_set,
+        defaults={
+            'completed_flashcards': 0,
+            'completed_percentage': 0,
+            'has_completed': False
+        }
     )
 
     if request.method == "POST":
@@ -259,17 +264,18 @@ def update_progress(request):
             user = User.objects.get(id=user_id)
             flashcard_set = FlashcardSet.objects.get(id=flashcard_set_id)
 
-            # Get or create progress record
             progress, created = UserFlashcardProgress.objects.get_or_create(
                 user=user,
-                flashcard_set=flashcard_set
+                flashcard_set=flashcard_set,
+                defaults={
+                    'completed_percentage': 0,
+                    'has_completed': False
+                }
             )
 
-            # Update completed_percentage only if it's higher than the current value
             if percentage > progress.completed_percentage:
                 progress.completed_percentage = percentage
             
-            # Once completed, always keep it as completed
             if percentage >= 100 or progress.has_completed:
                 progress.has_completed = True
 

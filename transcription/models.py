@@ -81,6 +81,8 @@ class UserFlashcardProgress(models.Model):
     completed_percentage = models.FloatField(default=0)  # Ensure this field exists
     has_completed = models.BooleanField(default=False)
     
+    class Meta:
+        unique_together = ('user', 'flashcard_set')
     def mark_completed(self):
         self.has_completed = True
         self.completed_percentage = 100

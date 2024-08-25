@@ -89,19 +89,11 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
     <script>
         let isRecording = false;
-        let mediaRecorder;
-        let audioChunks = [];
-        let attemptCount = 0;
         let currentFlashcardIndex = 0;
-        const maxAttempts = 2;
 
         const micDiv = document.getElementById("mic");
-        const checkmark = document.getElementById("checkmark");
-        const wrong = document.getElementById("wrong");
         const flashcard = document.getElementById("flashcard");
         const nextArrow = document.getElementById("next-arrow");
-        const loading = document.getElementById("loading");
-        const transcribedText = document.getElementById("transcribed-text");
         const completionIndicator = document.getElementById("completion-indicator");
         const congratulationsPopup = document.getElementById("congratulations-popup");
         const restartButton = document.getElementById("restart-button");
@@ -138,107 +130,15 @@
             }
         }
 
-        micDiv.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            if (!isRecording) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    mediaRecorder.ondataavailable = (event) => {
-                        audioChunks.push(event.data);
-                    };
-                    mediaRecorder.onstop = () => {
-                        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-                        const reader = new FileReader();
-                        reader.readAsDataURL(audioBlob);
-                        reader.onloadend = () => {
-                            const base64String = reader.result.split(',')[1];
-                            document.getElementById("audio_data").value = base64String;
-                            checkPronunciation(base64String);
-                        };
-                    };
-                    mediaRecorder.start();
-                    isRecording = true;
-                    micDiv.classList.add("recording");
-                } catch (error) {
-                    console.error("Error accessing audio", error);
-                }
-            } else {
-                if (mediaRecorder) {
-                    mediaRecorder.stop();
-                    isRecording = false;
-                    micDiv.classList.remove("recording");
-                    attemptCount++;
-                    loading.style.display = "block";
-                }
-            }
-        });
-
         flashcard.addEventListener("click", () => {
             if (!isRecording) {
                 flashcard.classList.toggle("flipped");
             }
         });
 
-        function checkPronunciation(audioData) {
-            const form = document.getElementById("audioForm");
-            const formData = new FormData(form);
-
-            fetch("{% url 'check_pronunciation' %}", {
-                method: "POST",
-                body: formData,
-                headers: {
-                    "X-CSRFToken": formData.get("csrfmiddlewaretoken"),
-                },
-            })
-            .then((response) => response.json())
-            .then((data) => {
-                loading.style.display = "none";
-                if (data.correct) {
-                    showCheckmark();
-                } else {
-                    showWrong(data.transcribed_text);
-                }
-            })
-            .catch((error) => {
-                console.error("Error:", error);
-                loading.style.display = "none";
-            });
-        }
-
-        function showCheckmark() {
-            checkmark.classList.add("show");
-            nextArrow.classList.add("show");
-            transcribedText.textContent = "";
-            transcribedText.style.display = "none";
-            resetMic();
-        }
-
-        function showWrong(transcribed) {
-            wrong.classList.add("show");
-            transcribedText.textContent = `You said: ${transcribed}`;
-            transcribedText.style.display = "block";
-            if (attemptCount >= maxAttempts) {
-                nextArrow.classList.add("show");
-                resetMic();
-            }
-        }
-
-        function resetMic() {
-            micDiv.classList.remove("recording");
-            isRecording = false;
-            audioChunks = [];
-            attemptCount = 0;
-        }
-
         function resetUI() {
-            checkmark.classList.remove("show");
-            wrong.classList.remove("show");
-            nextArrow.classList.remove("show");
-            transcribedText.style.display = "none";
+            nextArrow.classList.add("show");
             flashcard.classList.remove("flipped");
-            resetMic();
         }
 
         function updateCompletionPercentage() {
@@ -255,37 +155,43 @@
                 body: JSON.stringify({
                     user_id: "{{ user.id }}",
                     flashcard_set_id: "{{ flashcard_set.id }}",
-                    completed_flashcards: currentFlashcardIndex + 1
+                    percentage: percentage
                 })
             })
             .then(response => response.json())
-            .catch(error => console.error('Error:', error));
+            .then(data => {
+                if (data.status === "success") {
+                    console.log("Progress updated successfully.");
+                } else {
+                    console.error("Failed to update progress");
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        
+            if (percentage === 100) {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { x: 0.5, y: 0.5 }
+                });
+                congratulationsPopup.style.display = "block";
+            }
         }
+
 
         nextArrow.addEventListener("click", () => {
-            if (currentFlashcardIndex < flashcards.length - 1) {
-                currentFlashcardIndex++;
-                updateFlashcard();
-            } else {
-                showCongratulationsPopup();
-            }
+            currentFlashcardIndex = (currentFlashcardIndex + 1) % flashcards.length;
+            updateFlashcard();
         });
-
-        function showCongratulationsPopup() {
-            congratulationsPopup.style.display = "block";
-            confetti();
-        }
 
         restartButton.addEventListener("click", () => {
-            congratulationsPopup.style.display = "none";
             currentFlashcardIndex = 0;
             updateFlashcard();
+            congratulationsPopup.style.display = "none";
         });
 
-        document.addEventListener("DOMContentLoaded", () => {
-            loadFlashcardIndex();
-            updateFlashcard();
-        });
+        loadFlashcardIndex();
+        updateFlashcard();
     </script>
 </body>
 </html>
