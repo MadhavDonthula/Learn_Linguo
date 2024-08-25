@@ -46,10 +46,10 @@ class ClassCodeAdmin(admin.ModelAdmin):
     view_progress_link.allow_tags = True
 
     def save_model(self, request, obj, form, change):
-        # Check if at least one assignment and one flashcard set are associated
-        if not obj.assignments.exists() or not obj.flashcard_sets.exists():
-            return  # Optionally, you can raise an error or give a warning here
+        # Save the ClassCode instance to get its ID
         super().save_model(request, obj, form, change)
+        # Now save the many-to-many relationships
+        form.save_m2m()
 
     def get_urls(self):
         urls = super().get_urls()
@@ -58,7 +58,7 @@ class ClassCodeAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-# Make sure to register your admin class with the model
+# Register the ClassCodeAdmin with the model
 admin.site.register(ClassCode, ClassCodeAdmin)
 def class_code_progress_view(request, class_code_id):
     try:

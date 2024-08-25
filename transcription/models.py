@@ -2,12 +2,18 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
 import re
+from django.db import models
 
 class ClassCode(models.Model):
     code = models.CharField(max_length=10, unique=True, default="ABC1234567")
     name = models.CharField(max_length=100, default="French Class")
     assignments = models.ManyToManyField('Assignment', blank=True, related_name='class_codes')
     flashcard_sets = models.ManyToManyField('FlashcardSet', blank=True, related_name='class_codes')
+
+    def save(self, *args, **kwargs):
+        # Save the instance first to get an ID
+        super().save(*args, **kwargs)
+        # Now the instance has an ID, so you can safely assign many-to-many relationships
 
     def __str__(self):
         return self.code
