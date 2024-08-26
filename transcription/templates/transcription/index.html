@@ -15,8 +15,8 @@
     <div class="container">
       {% if assignments %}
         {% for assignment in assignments %}
-        <div class="box" onClick="window.location.href='{% url "record_audio" assignment.id %}'"> 
-        <h4>{{ assignment.name }}</h4>
+        <div class="box" onClick="window.location.href='{% url "questions" assignment.id %}'"> 
+        <h4>{{ assignment.title }}</h4>
         </div>
         {% endfor %}
       {% else %}

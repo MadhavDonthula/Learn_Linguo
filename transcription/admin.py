@@ -3,15 +3,14 @@ from django.urls import path, reverse
 from django.shortcuts import render, redirect
 from django.http import Http404
 from django.utils.html import format_html
-from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.shortcuts import render, get_object_or_404
 
 
 # Register models
-admin.site.register(Assignment)
-admin.site.register(QuestionAnswer)
+
 
 class FlashcardInline(admin.TabularInline):
     model = Flashcard
@@ -148,3 +147,13 @@ class UserFlashcardProgressAdmin(admin.ModelAdmin):
             if obj.completed_flashcards >= Flashcard.objects.filter(flashcard_set=obj.flashcard_set).count():
                 obj.mark_completed()
         super().save_model(request, obj, form, change)
+
+class QuestionInline(admin.TabularInline):
+    model = Question
+    extra = 1
+    max_num = 6  # Set the max number of questions per assignment to 6
+
+@admin.register(Assignment)
+class AssignmentAdmin(admin.ModelAdmin):
+    inlines = [QuestionInline]
+    fields = ('title', 'description', 'due_date')

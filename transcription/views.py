@@ -10,7 +10,7 @@ import string
 import re
 
 from openai import OpenAI
-from .models import Assignment, QuestionAnswer, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question
 from .forms import CreateUserForm
 
 from django.contrib.auth.models import User
@@ -84,53 +84,53 @@ def index(request, assignment_id=None):
 def record_audio(request, assignment_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     questions = assignment.questions.all()
-    return render(request, "transcription/record_audio.html", {"assignment": assignment, "questions": questions})
+    return render(request, "transcription/questions.html", {"assignment": assignment, "questions": questions})
 
+from django.http import JsonResponse
 
 def save_audio(request):
-    try:
-        if request.method == "POST":
-            audio_data = request.POST.get('audio_data', None)
-            assignment_id = request.POST.get('assignment_id', None)
-            question_id = request.POST.get('question_id', None)
+    if request.method == "POST":
+        audio_data = request.POST.get('audio_data')
+        assignment_id = request.POST.get('assignment_id')
+        question_id = request.POST.get('question_id')
 
-            if audio_data:
-                audio_bytes = base64.b64decode(audio_data)
+        if not all([audio_data, assignment_id, question_id]):
+            return JsonResponse({"error": "Missing audio data, assignment ID, or question ID"}, status=400)
 
-                with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
-                    temp_audio_file.write(audio_bytes)
-                    temp_audio_file.flush()
-                    
-                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
+        try:
+            audio_bytes = base64.b64decode(audio_data)
+            with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
+                temp_audio_file.write(audio_bytes)
+                temp_audio_file.flush()
 
-                    with open(temp_audio_file.name, "rb") as wav_file:
-                        transcription = client.audio.transcriptions.create(
-                            model="whisper-1",
-                            file=wav_file,
-                            response_format="text"
-                        )
+                client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
+                with open(temp_audio_file.name, "rb") as wav_file:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=wav_file,
+                        response_format="text",
+                        language="fr",
+                    )
 
-                transcribed_text = transcription.strip()
-                assignment = get_object_or_404(Assignment, id=assignment_id)
-                selected_question = get_object_or_404(QuestionAnswer, id=question_id, assignment=assignment)
-                selected_answer = selected_question.answer
+            transcribed_text = transcription.strip()
+            assignment = get_object_or_404(Assignment, id=assignment_id)
+            selected_question = get_object_or_404(Question, id=question_id, assignment=assignment)
+            reference_answer = selected_question.answer
 
-                reference_answer = selected_answer if selected_answer else ""
-                score = compare_texts(transcribed_text, reference_answer)
+            missing_words, score = compare_texts(transcribed_text, reference_answer)
 
-                return render(request, 'transcription/result.html', {
-                    "transcribed_text": transcribed_text,
-                    'answer': reference_answer,
-                    'score': score,
-                    'assignment': assignment,
-                    'question': selected_question,
-                })
-            else:
-                return HttpResponse("Error: Invalid audio data format")
-        else:
-            return HttpResponse("Invalid request method")
-    except Exception as e:
-        return HttpResponse(f"Error: {str(e)}")
+            return JsonResponse({
+                "transcribed_text": transcribed_text,
+                "answer": reference_answer,
+                "score": score,
+                "question": selected_question.question_text,
+                "missing_words": missing_words,
+            })
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
 def compare_texts(transcribed_text, answer):
@@ -154,7 +154,7 @@ def compare_texts(transcribed_text, answer):
 @login_required(login_url="login")
 def recording(request, assignment_id, question_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
-    question = get_object_or_404(QuestionAnswer, id=question_id)
+    question = get_object_or_404(Question, id=question_id)
     return render(request, "transcription/recording.html", {"assignment": assignment, "question": question})
 
 

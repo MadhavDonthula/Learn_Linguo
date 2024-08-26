@@ -17,7 +17,6 @@ class ClassCode(models.Model):
 
     def __str__(self):
         return self.code
-
 class Assignment(models.Model):
     title = models.CharField(max_length=200, default="French Assignment")
     description = models.TextField(default="This is a default description.")
@@ -26,6 +25,14 @@ class Assignment(models.Model):
 
     def __str__(self):
         return self.title
+
+class Question(models.Model):
+    assignment = models.ForeignKey(Assignment, related_name='questions', on_delete=models.CASCADE)
+    question_text = models.TextField(default="What is your name?")
+    answer = models.TextField(default="My name is Jean.")
+
+    def __str__(self):
+        return self.question_text
 
 class FlashcardSet(models.Model):
     name = models.CharField(max_length=200, default="Basic French Words")
@@ -60,13 +67,6 @@ class Flashcard(models.Model):
     def __str__(self):
         return f'{self.french_word} - {self.english_translation}'
 
-class QuestionAnswer(models.Model):
-    assignment = models.ForeignKey(Assignment, related_name='questions', on_delete=models.CASCADE)
-    question_text = models.TextField(default="What is your name?")
-    answer = models.TextField(default="My name is Jean.")
-
-    def __str__(self):
-        return self.question_text
 
 class UserClassEnrollment(models.Model):
     user = models.ForeignKey(User, related_name='class_enrollments', on_delete=models.CASCADE)
