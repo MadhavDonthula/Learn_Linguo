@@ -1,196 +1,189 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Questions</title>
-  <link rel="stylesheet" type="text/css" href="{% static 'transcription/questions.css' %}" />
-  <link rel="stylesheet" type="text/css" href="{% static 'transcription/result.css' %}" />
-</head>
-<body>
-  <h1>Questions for {{ assignment.title }}</h1>
-  <div class="flashcard-container">
-    {% for question in questions %}
-      <div class="flashcard" data-question-id="{{ question.id }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Questions</title>
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{% static 'transcription/questions.css' %}" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="{% static 'transcription/result.css' %}" />
+  </head>
+  <body>
+    <h1>Questions for {{ assignment.title }}</h1>
+    <div class="flashcard-container">
+      {% for question in questions %}
+      <div
+        class="flashcard {% if question.id in answered_question_ids %}locked{% endif %}"
+        data-question-id="{{ question.id }}">
         <h4>{{ question.question_text }}</h4>
-        <div class="text-to-speech" data-question-text="{{ question.question_text }}">
+        <div
+          class="text-to-speech"
+          data-question-text="{{ question.question_text }}">
           👾
         </div>
         <div class="mic" data-question-id="{{ question.id }}">
           <i class="mic-icon"></i>
-          <div class="mic-shadow"></div>
         </div>
       </div>
-    {% endfor %}
-  </div>
+      {% endfor %}
+    </div>
 
-  <form id="audioForm" method="post" action="{% url 'save_audio' %}">
-    {% csrf_token %}
-    <input type="hidden" name="audio_data" id="audio_data" />
-    <input type="hidden" name="assignment_id" value="{{ assignment.id }}" />
-    <input type="hidden" name="question_id" id="question_id" />
-  </form>
+    <form id="audioForm" method="post" action="{% url 'save_audio' %}">
+      {% csrf_token %}
+      <input type="hidden" name="audio_data" id="audio_data" />
+      <input type="hidden" name="assignment_id" value="{{ assignment.id }}" />
+      <input type="hidden" name="question_id" id="question_id" />
+    </form>
 
-  <div id="result-tab" class="result-tab hidden">
-    <div class="close-btn" onclick="closeResultTab()">×</div>
-    <h2>Original Question:</h2>
-    <p id="question-text"></p>
+    <div id="result-tab" class="result-tab hidden">
+      <div class="close-btn" onclick="closeResultTab()">×</div>
+      <h2>Original Question:</h2>
+      <p id="question-text"></p>
+      <h2>Your Answer:</h2>
+      <p id="transcribed-text"></p>
+      <h2>Expected Answer:</h2>
+      <p id="expected-answer"></p>
+      <h2>Your Score:</h2>
+      <p id="score"></p>
+    </div>
 
-    <h2>Your Answer:</h2>
-    <p id="transcribed-text"></p>
+    <div id="countdown" class="countdown hidden"></div>
 
-    <h2>Expected Answer:</h2>
-    <p id="expected-answer"></p>
+    <script>
+      let isRecording = false;
+      let mediaRecorder;
+      let audioChunks = [];
+      const answeredQuestions = new Set({{ answered_question_ids|json_script:"answeredQuestions" }});
 
-    <h2>Your Score:</h2>
-    <p id="score"></p>
-  </div>
+      const flashcards = document.querySelectorAll(".flashcard");
 
-  <script>
-    let isRecording = false;
-    let mediaRecorder;
-    let audioChunks = [];
-    const answeredQuestions = new Set();
-    const flashcards = document.querySelectorAll(".flashcard");
+      flashcards.forEach((card) => {
+          const mic = card.querySelector(".mic");
+          const tts = card.querySelector(".text-to-speech");
+          const questionId = card.getAttribute("data-question-id");
 
-    flashcards.forEach((card) => {
-      const mic = card.querySelector(".mic");
-      const tts = card.querySelector(".text-to-speech");
-      
-      mic.addEventListener("click", () => {
-        const questionId = card.getAttribute("data-question-id");
+          if (answeredQuestions.has(parseInt(questionId))) {
+              card.classList.add("locked");
+          }
 
-        if (!answeredQuestions.has(questionId)) {
-          document.getElementById("question_id").value = questionId;
-          startRecording(questionId, mic);
-        }
+          mic.addEventListener("click", () => {
+              if (!answeredQuestions.has(parseInt(questionId))) {
+                  document.getElementById("question_id").value = questionId;
+                  startRecording(questionId, mic);
+              }
+          });
+
+          tts.addEventListener("click", () => {
+              const questionText = tts.getAttribute("data-question-text");
+              speakQuestion(questionText, () => {
+                  showCountdown(3, () => startRecording(questionId, mic));
+              });
+          });
       });
 
-      tts.addEventListener("click", () => {
-        const questionText = tts.getAttribute("data-question-text");
-        speakQuestion(questionText);
-      });
-    });
+      const startRecording = async (questionId, micDiv) => {
+          if (!isRecording) {
+              try {
+                  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                  mediaRecorder = new MediaRecorder(stream);
 
-    const startRecording = async (questionId, micDiv) => {
-      if (!isRecording) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          mediaRecorder = new MediaRecorder(stream);
-          
-          mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
-          };
+                  mediaRecorder.ondataavailable = (event) => {
+                      audioChunks.push(event.data);
+                  };
 
-          mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-            const reader = new FileReader();
-            reader.readAsArrayBuffer(audioBlob);
-            reader.onloadend = () => {
-              const base64String = btoa(
-                new Uint8Array(reader.result).reduce(
-                  (data, byte) => data + String.fromCharCode(byte),
-                  ""
-                )
-              );
-              document.getElementById("audio_data").value = base64String;
-              submitAudioForm(questionId, micDiv);
-            };
-          };
+                  mediaRecorder.onstop = () => {
+                      const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                      const reader = new FileReader();
+                      reader.readAsArrayBuffer(audioBlob);
+                      reader.onloadend = () => {
+                          const base64String = btoa(
+                              new Uint8Array(reader.result).reduce(
+                                  (data, byte) => data + String.fromCharCode(byte),
+                                  ""
+                              )
+                          );
+                          document.getElementById("audio_data").value = base64String;
+                          submitAudioForm(questionId, micDiv);
+                      };
+                  };
 
-          mediaRecorder.start();
-          isRecording = true;
-          micDiv.classList.add("recording");
-        } catch (error) {
-          console.error("Error accessing audio", error);
-        }
-      } else {
-        if (mediaRecorder) {
-          mediaRecorder.stop();
-          isRecording = false;
-          micDiv.classList.remove("recording");
-          audioChunks = []; // Clear the audio chunks
-        }
-      }
-    };
+                  mediaRecorder.start();
+                  isRecording = true;
+                  micDiv.classList.add("recording");
+              } catch (error) {
+                  console.error("Error accessing audio", error);
+              }
+          } else {
+              if (mediaRecorder) {
+                  mediaRecorder.stop();
+                  isRecording = false;
+                  micDiv.classList.remove("recording");
+                  audioChunks = [];
+              }
+          }
+      };
 
-    const submitAudioForm = (questionId, micDiv) => {
-      const formData = new FormData(document.getElementById("audioForm"));
-      fetch("{% url 'save_audio' %}", {
-        method: "POST",
-        body: formData,
-      })
-      .then(response => response.json())
-      .then(data => {
-        showResultTab(data);
-        lockAnsweredQuestion(questionId, micDiv);
-      })
-      .catch(error => console.error("Error:", error));
-    };
+      const submitAudioForm = (questionId, micDiv) => {
+          const formData = new FormData(document.getElementById("audioForm"));
+          fetch("{% url 'save_audio' %}", {
+              method: "POST",
+              body: formData,
+          })
+          .then((response) => response.json())
+          .then((data) => {
+              showResultTab(data);
+              lockAnsweredQuestion(questionId, micDiv);
+          })
+          .catch((error) => console.error("Error:", error));
+      };
 
-    const showResultTab = (data) => {
-      document.getElementById("question-text").textContent = data.question;
-      document.getElementById("transcribed-text").textContent = data.transcribed_text;
-      document.getElementById("expected-answer").textContent = data.answer;
-      document.getElementById("score").textContent = `${data.score}%`;
+      const showResultTab = (data) => {
+          document.getElementById("question-text").textContent = data.question;
+          document.getElementById("transcribed-text").textContent = data.transcribed_text;
+          document.getElementById("expected-answer").textContent = data.answer;
+          document.getElementById("score").textContent = `${data.score}%`;
 
-      const resultTab = document.getElementById("result-tab");
-      resultTab.classList.remove("hidden");
-    };
+          const resultTab = document.getElementById("result-tab");
+          resultTab.classList.remove("hidden");
+      };
 
-    const closeResultTab = () => {
-      const resultTab = document.getElementById("result-tab");
-      resultTab.classList.add("hidden");
-    };
+      const closeResultTab = () => {
+          const resultTab = document.getElementById("result-tab");
+          resultTab.classList.add("hidden");
+      };
 
-    const lockAnsweredQuestion = (questionId, micDiv) => {
-      answeredQuestions.add(questionId);
-      micDiv.classList.add("locked");
-    };
+      const lockAnsweredQuestion = (questionId, micDiv) => {
+          answeredQuestions.add(parseInt(questionId));
+          const flashcard = micDiv.closest(".flashcard");
+          flashcard.classList.add("locked");
+      };
 
-    const speakQuestion = (questionText) => {
-      if ('speechSynthesis' in window) {
-        const speech = new SpeechSynthesisUtterance(questionText);
-        speech.lang = 'fr-FR';
-        speech.rate = 0.9;
-        speech.pitch = 1.2;
+      const speakQuestion = (questionText, callback) => {
+          if ("speechSynthesis" in window) {
+              const speech = new SpeechSynthesisUtterance(questionText);
+              speech.lang = "fr-FR";
+              speech.rate = 0.9;
+              speech.pitch = 1.2;
 
-        const voices = window.speechSynthesis.getVoices();
-        const selectedVoice = voices.find(voice => voice.lang === 'fr-FR' && voice.name.includes("Google")) || voices[0];
-        speech.voice = selectedVoice;
+              const voices = window.speechSynthesis.getVoices();
+              const selectedVoice = voices.find((voice) => voice.lang === "fr-FR" && voice.name.includes("Google")) || voices[0];
+              speech.voice = selectedVoice;
 
-        window.speechSynthesis.speak(speech);
-      } else {
-        console.error("Text-to-Speech not supported by this browser.");
-      }
-    };
+              speech.onend = () => {
+                  if (callback) callback();
+              };
 
-    const countdownAndStartRecording = () => {
-      let countdown = 3;
-      const countdownElement = document.createElement('div');
-      countdownElement.style.position = 'fixed';
-      countdownElement.style.top = '50%';
-      countdownElement.style.left = '50%';
-      countdownElement.style.transform = 'translate(-50%, -50%)';
-      countdownElement.style.fontSize = '3rem';
-      countdownElement.style.color = 'white';
-      countdownElement.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-      countdownElement.style.padding = '20px';
-      countdownElement.style.borderRadius = '10px';
-      countdownElement.id = 'countdown';
-      document.body.appendChild(countdownElement);
-
-      const interval = setInterval(() => {
-        countdownElement.textContent = countdown;
-        if (countdown === 0) {
-          clearInterval(interval);
-          document.body.removeChild(countdownElement);
-          startRecording(document.getElementById("question_id").value, document.querySelector(`.flashcard[data-question-id="${document.getElementById("question_id").value}"] .mic`));
-        }
-        countdown--;
-      }, 1000);
-    };
-  </script>
-</body>
+              window.speechSynthesis.speak(speech);
+          } else {
+              console.error("Text-to-Speech not supported by this browser.");
+          }
+      };
+    </script>
+  </body>
 </html>

@@ -10,7 +10,10 @@ import string
 import re
 
 from openai import OpenAI
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question
+from .models import (
+    Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment,
+    UserFlashcardProgress, Question, UserAssignmentProgress
+)
 from .forms import CreateUserForm
 
 from django.contrib.auth.models import User
@@ -84,9 +87,19 @@ def index(request, assignment_id=None):
 def record_audio(request, assignment_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     questions = assignment.questions.all()
-    return render(request, "transcription/questions.html", {"assignment": assignment, "questions": questions})
+    
+    # Get the IDs of questions answered by the current user for this assignment
+    answered_questions = UserAssignmentProgress.objects.filter(
+        user=request.user,
+        assignment=assignment
+    ).values_list('question_id', flat=True)
+    
+    return render(request, "transcription/questions.html", {
+        "assignment": assignment,
+        "questions": questions,
+        "answered_question_ids": answered_questions,  # Pass the answered question IDs to the template
+    })
 
-from django.http import JsonResponse
 
 def save_audio(request):
     if request.method == "POST":
@@ -119,6 +132,13 @@ def save_audio(request):
 
             missing_words, score = compare_texts(transcribed_text, reference_answer)
 
+            # Save the answered question
+            UserAssignmentProgress.objects.get_or_create(
+                user=request.user,
+                assignment=assignment,
+                question=selected_question
+            )
+
             return JsonResponse({
                 "transcribed_text": transcribed_text,
                 "answer": reference_answer,
@@ -150,7 +170,47 @@ def compare_texts(transcribed_text, answer):
     score = len(correct_words) / len(answer_words) * 100
     return ", ".join(missing_words), round(score, 2)
 
+def save_answered_question(request):
+    if request.method == "POST":
+        user_id = request.POST.get('user_id')
+        assignment_id = request.POST.get('assignment_id')
+        question_id = request.POST.get('question_id')
+        answer = request.POST.get('answer')
 
+        if not all([user_id, assignment_id, question_id, answer]):
+            return JsonResponse({"error": "Missing user ID, assignment ID, question ID, or answer"}, status=400)
+
+        try:
+            user = get_object_or_404(User, id=user_id)
+            assignment = get_object_or_404(Assignment, id=assignment_id)
+            question = get_object_or_404(Question, id=question_id, assignment=assignment)
+
+            # Create or update UserAssignmentProgress
+            progress, created = UserAssignmentProgress.objects.get_or_create(
+                user=user,
+                assignment=assignment,
+                defaults={'completed_questions': 0, 'completed_percentage': 0, 'has_completed': False}
+            )
+
+            if not created:
+                # Increment completed_questions if not newly created
+                progress.completed_questions += 1
+
+            # Update progress and check completion status
+            total_questions = Question.objects.filter(assignment=assignment).count()
+            if progress.completed_questions >= total_questions:
+                progress.has_completed = True
+                progress.completed_percentage = 100
+            else:
+                progress.update_progress()  # Update percentage based on completed questions
+
+            progress.save()  # Save the updated progress
+
+            return JsonResponse({"status": "success", "completed_percentage": progress.completed_percentage, "has_completed": progress.has_completed})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request method"}, status=405)
 @login_required(login_url="login")
 def recording(request, assignment_id, question_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
@@ -247,45 +307,41 @@ def check_pronunciation(request):
 
                 return JsonResponse({"correct": is_correct, "transcribed_text": transcribed_text})
             else:
-                return JsonResponse({"error": "Invalid audio data format"})
+                return JsonResponse({"error": "No audio data received"}, status=400)
+        except Flashcard.DoesNotExist:
+            return JsonResponse({"error": "Flashcard not found"}, status=404)
         except Exception as e:
-            return JsonResponse({"error": str(e)})
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    return JsonResponse({"error": "Invalid request method"}, status=405)
 
-    return JsonResponse({"error": "Invalid request method"})
-@login_required(login_url="login")
-def update_progress(request):
+def update_assignment_progress(request):
     if request.method == "POST":
-        data = json.loads(request.body)
-        user_id = data.get('user_id')
-        flashcard_set_id = data.get('flashcard_set_id')
-        percentage = data.get('percentage')
+        user_id = request.POST.get('user_id')
+        assignment_id = request.POST.get('assignment_id')
+        question_id = request.POST.get('question_id')
+        completed = request.POST.get('completed') == 'true'
+
+        if not all([user_id, assignment_id, question_id]):
+            return JsonResponse({"error": "Missing user ID, assignment ID, or question ID"}, status=400)
 
         try:
-            user = User.objects.get(id=user_id)
-            flashcard_set = FlashcardSet.objects.get(id=flashcard_set_id)
+            user = get_object_or_404(User, id=user_id)
+            assignment = get_object_or_404(Assignment, id=assignment_id)
+            question = get_object_or_404(Question, id=question_id, assignment=assignment)
 
-            progress, created = UserFlashcardProgress.objects.get_or_create(
+            progress, created = UserAssignmentProgress.objects.get_or_create(
                 user=user,
-                flashcard_set=flashcard_set,
-                defaults={
-                    'completed_percentage': 0,
-                    'has_completed': False
-                }
+                assignment=assignment,
+                question=question,
+                defaults={'completed': completed}
             )
 
-            if percentage > progress.completed_percentage:
-                progress.completed_percentage = percentage
-            
-            if percentage >= 100 or progress.has_completed:
-                progress.has_completed = True
+            if not created:
+                progress.completed = completed
+                progress.save()
 
-            progress.save()
-
-            return JsonResponse({"status": "success"})
-
-        except User.DoesNotExist:
-            return JsonResponse({"status": "error", "message": "User not found"})
-        except FlashcardSet.DoesNotExist:
-            return JsonResponse({"status": "error", "message": "Flashcard set not found"})
-
-    return JsonResponse({"status": "error", "message": "Invalid request"})
+            return JsonResponse({"status": "success", "completed": completed})
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    return JsonResponse({"error": "Invalid request method"}, status=405)

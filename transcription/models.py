@@ -1,22 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.utils.translation import gettext_lazy as _
 import re
-from django.db import models
-
 class ClassCode(models.Model):
     code = models.CharField(max_length=10, unique=True, default="ABC1234567")
     name = models.CharField(max_length=100, default="French Class")
     assignments = models.ManyToManyField('Assignment', blank=True, related_name='class_codes')
     flashcard_sets = models.ManyToManyField('FlashcardSet', blank=True, related_name='class_codes')
 
-    def save(self, *args, **kwargs):
-        # Save the instance first to get an ID
-        super().save(*args, **kwargs)
-        # Now the instance has an ID, so you can safely assign many-to-many relationships
-
     def __str__(self):
         return self.code
+
 class Assignment(models.Model):
     title = models.CharField(max_length=200, default="French Assignment")
     description = models.TextField(default="This is a default description.")
@@ -67,7 +60,6 @@ class Flashcard(models.Model):
     def __str__(self):
         return f'{self.french_word} - {self.english_translation}'
 
-
 class UserClassEnrollment(models.Model):
     user = models.ForeignKey(User, related_name='class_enrollments', on_delete=models.CASCADE)
     class_code = models.ForeignKey(ClassCode, related_name='students', on_delete=models.CASCADE)
@@ -79,35 +71,58 @@ class UserClassEnrollment(models.Model):
     def __str__(self):
         return f'{self.user.username} enrolled in {self.class_code.code}'
 
-# models.py
 class UserFlashcardProgress(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     flashcard_set = models.ForeignKey(FlashcardSet, on_delete=models.CASCADE)
     completed_flashcards = models.IntegerField(default=0)
-    completed_percentage = models.FloatField(default=0)  # Ensure this field exists
+    completed_percentage = models.FloatField(default=0)
     has_completed = models.BooleanField(default=False)
-    
+
     class Meta:
         unique_together = ('user', 'flashcard_set')
+
     def mark_completed(self):
         self.has_completed = True
         self.completed_percentage = 100
         self.save()
 
-
-    def __str__(self):
-        return f'{self.user.username} progress in {self.flashcard_set.name}'
-
     def reset_progress(self):
-        """Resets the progress for practice but retains the completed status and highest percentage."""
         self.completed_flashcards = 0
         self.save()
 
     def update_progress(self):
-        """Updates the completion percentage and highest percentage."""
         total_flashcards = Flashcard.objects.filter(flashcard_set=self.flashcard_set).count()
         if total_flashcards > 0:
             percentage = round((self.completed_flashcards / total_flashcards) * 100)
-            if percentage > self.highest_percentage:
-                self.highest_percentage = percentage
+            if percentage > self.completed_percentage:
+                self.completed_percentage = percentage
         self.save()
+
+    def __str__(self):
+        return f'{self.user.username} progress in {self.flashcard_set.name}'
+
+class UserAssignmentProgress(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    completed = models.BooleanField(default=False)
+    completed_questions = models.IntegerField(default=0)
+    completed_percentage = models.FloatField(default=0)
+    has_completed = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('user', 'assignment', 'question')
+
+    def mark_completed(self):
+        self.has_completed = True
+        self.completed_percentage = 100
+        self.save()
+
+    def update_progress(self):
+        total_questions = Question.objects.filter(assignment=self.assignment).count()
+        if total_questions > 0:
+            self.completed_percentage = round((self.completed_questions / total_questions) * 100)
+        self.save()
+
+    def __str__(self):
+        return f'{self.user.username} progress in {self.assignment.title}'

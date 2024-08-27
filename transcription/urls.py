@@ -13,7 +13,7 @@ urlpatterns = [
     path('assignments/<int:assignment_id>/', views.index, name='index'),
     path('questions/<int:assignment_id>/', views.record_audio, name='questions'),
     path('save_audio/', views.save_audio, name='save_audio'),
-    path('recording/<int:assignment_id>/<int:question_id>/', views.recording, name='recording'),
-    path('update-progress/', views.update_progress, name='update_progress'),
+    path('save_answered_question/', views.save_answered_question, name='save_answered_question'),
+
 
 ]
