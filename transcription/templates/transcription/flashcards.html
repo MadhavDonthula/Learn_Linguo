@@ -1,291 +1,322 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flashcards</title>
     <link rel="stylesheet" href="{% static 'transcription/flashcards.css' %}" />
     <style>
-        .completion-indicator {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: #fff;
-            border: 1px solid #ccc;
-            padding: 5px 10px;
-            border-radius: 5px;
-            font-size: 14px;
-            z-index: 1000;
-        }
+      .completion-indicator {
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        background: #fff;
+        border: 1px solid #ccc;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 14px;
+        z-index: 1000;
+      }
 
-        .congratulations-popup {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: #fff;
-            border: 2px solid #ccc;
-            padding: 20px;
-            text-align: center;
-            z-index: 1001;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
+      .congratulations-popup {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #fff;
+        border: 2px solid #ccc;
+        padding: 20px;
+        text-align: center;
+        z-index: 1001;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
 
-        .congratulations-popup h1 {
-            margin-bottom: 20px;
-            color: black;
-        }
+      .congratulations-popup h1 {
+        margin-bottom: 20px;
+        color: black;
+      }
 
-        .restart-button {
-            background-color: #28a745;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
+      .restart-button {
+        background-color: #28a745;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      }
 
-        .restart-button:hover {
-            background-color: #218838;
-        }
+      .restart-button:hover {
+        background-color: #218838;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="flashcard" id="flashcard">
-        <div class="flashcard-front">
-            <h1 id="french-word">{{ flashcard.french_word }}</h1>
-            <div id="mic" class="mic">
-                <i class="mic-icon"></i>
-            </div>
+      <div class="flashcard-front">
+        <h1 id="french-word">{{ flashcard.french_word }}</h1>
+        <div id="mic" class="mic">
+          <i class="mic-icon"></i>
         </div>
-        <div class="flashcard-back">
-            <h1 id="english-translation">{{ flashcard.english_translation }}</h1>
-        </div>
+      </div>
+      <div class="flashcard-back">
+        <h1 id="english-translation">{{ flashcard.english_translation }}</h1>
+      </div>
     </div>
     <div class="checkmark" id="checkmark">✅</div>
     <div class="wrong" id="wrong">❌</div>
     <div class="transcribed-text" id="transcribed-text"></div>
     <div class="next-arrow" id="next-arrow">➡️</div>
     <div class="loading" id="loading">Loading...</div>
-    <div class="completion-indicator" id="completion-indicator">{{ completion_percentage }}% Completed</div>
-    
+    <div class="completion-indicator" id="completion-indicator">
+      {{ completion_percentage }}% Completed
+    </div>
+
     <!-- Congratulations Popup -->
     <div class="congratulations-popup" id="congratulations-popup">
-        <h1>Congratulations! You finished: {{ flashcard_set.name }}</h1>
-        <button class="restart-button" id="restart-button">Restart</button>
+      <h1>Congratulations! You finished: {{ flashcard_set.name }}</h1>
+      <button class="restart-button" id="restart-button">Restart</button>
     </div>
 
     <form id="audioForm" method="POST" style="display: none">
-        {% csrf_token %}
-        <input type="hidden" name="audio_data" id="audio_data" />
-        <input type="hidden" name="flashcard_id" id="flashcard_id" value="{{ flashcard.id }}" />
-        <input type="hidden" name="flashcard_set_id" id="flashcard_set_id" value="{{ flashcard_set.id }}" />
+      {% csrf_token %}
+      <input type="hidden" name="audio_data" id="audio_data" />
+      <input
+        type="hidden"
+        name="flashcard_id"
+        id="flashcard_id"
+        value="{{ flashcard.id }}" />
+      <input
+        type="hidden"
+        name="flashcard_set_id"
+        id="flashcard_set_id"
+        value="{{ flashcard_set.id }}" />
     </form>
 
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
     <script>
-        let isRecording = false;
-        let mediaRecorder;
-        let audioChunks = [];
-        let attemptCount = 0;
-        let currentFlashcardIndex = 0;
-        const maxAttempts = 2;
+      let isRecording = false;
+      let mediaRecorder;
+      let audioChunks = [];
+      let attemptCount = 0;
+      let currentFlashcardIndex = 0;
+      const maxAttempts = 2;
 
-        const micDiv = document.getElementById("mic");
-        const checkmark = document.getElementById("checkmark");
-        const wrong = document.getElementById("wrong");
-        const flashcard = document.getElementById("flashcard");
-        const nextArrow = document.getElementById("next-arrow");
-        const loading = document.getElementById("loading");
-        const transcribedText = document.getElementById("transcribed-text");
-        const completionIndicator = document.getElementById("completion-indicator");
-        const congratulationsPopup = document.getElementById("congratulations-popup");
-        const restartButton = document.getElementById("restart-button");
+      const micDiv = document.getElementById("mic");
+      const checkmark = document.getElementById("checkmark");
+      const wrong = document.getElementById("wrong");
+      const flashcard = document.getElementById("flashcard");
+      const nextArrow = document.getElementById("next-arrow");
+      const loading = document.getElementById("loading");
+      const transcribedText = document.getElementById("transcribed-text");
+      const completionIndicator = document.getElementById("completion-indicator");
+      const congratulationsPopup = document.getElementById("congratulations-popup");
+      const restartButton = document.getElementById("restart-button");
 
-        const flashcards = [
-            {% for flashcard in flashcards %}
-              {
-                id: {{ flashcard.id }},
-                french_word: "{{ flashcard.french_word }}",
-                english_translation: "{{ flashcard.english_translation }}"
+      const flashcards = [
+          {% for flashcard in flashcards %}
+            {
+              id: {{ flashcard.id }},
+              french_word: "{{ flashcard.french_word }}",
+              english_translation: "{{ flashcard.english_translation }}"
+            },
+          {% endfor %}
+      ];
+
+      function updateFlashcard() {
+          const currentFlashcard = flashcards[currentFlashcardIndex];
+          document.getElementById('french-word').textContent = currentFlashcard.french_word;
+          document.getElementById('english-translation').textContent = currentFlashcard.english_translation;
+          document.getElementById('flashcard_id').value = currentFlashcard.id;
+          document.getElementById('flashcard_set_id').value = "{{ flashcard_set.id }}";
+          resetUI();
+
+          saveFlashcardIndex();
+          updateCompletionPercentage();
+
+          nextArrow.classList.add("show");
+      }
+
+      function saveFlashcardIndex() {
+          fetch("{% url 'save_flashcard_index' %}", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
               },
-            {% endfor %}
-        ];
+              body: JSON.stringify({
+                  flashcard_set_id: "{{ flashcard_set.id }}",
+                  index: currentFlashcardIndex
+              })
+          })
+          .then(response => response.json())
+          .then(data => {
+              console.log('Flashcard index saved:', data);
+          })
+          .catch(error => console.error('Error:', error));
+      }
 
-        function updateFlashcard() {
-            const currentFlashcard = flashcards[currentFlashcardIndex];
-            document.getElementById('french-word').textContent = currentFlashcard.french_word;
-            document.getElementById('english-translation').textContent = currentFlashcard.english_translation;
-            document.getElementById('flashcard_id').value = currentFlashcard.id;
-            document.getElementById('flashcard_set_id').value = "{{ flashcard_set.id }}";
-            resetUI();
-            updateCompletionPercentage();
-            saveFlashcardIndex();
-        }
+      function loadFlashcardIndex() {
+          fetch("{% url 'get_flashcard_index' %}?flashcard_set_id={{ flashcard_set.id }}")
+              .then(response => response.json())
+              .then(data => {
+                  currentFlashcardIndex = data.index || 0;
+                  updateFlashcard();
+              })
+              .catch(error => console.error('Error:', error));
+      }
 
-        function saveFlashcardIndex() {
-            localStorage.setItem('currentFlashcardIndex_{{ flashcard_set.id }}', currentFlashcardIndex);
-        }
+      micDiv.addEventListener("click", async (event) => {
+          event.stopPropagation();
+          if (!isRecording) {
+              try {
+                  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                  mediaRecorder = new MediaRecorder(stream);
+                  audioChunks = [];
+                  mediaRecorder.ondataavailable = (event) => {
+                      audioChunks.push(event.data);
+                  };
+                  mediaRecorder.onstop = () => {
+                      const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                      const reader = new FileReader();
+                      reader.readAsDataURL(audioBlob);
+                      reader.onloadend = () => {
+                          const base64String = reader.result.split(',')[1];
+                          document.getElementById("audio_data").value = base64String;
+                          checkPronunciation(base64String);
+                      };
+                  };
+                  mediaRecorder.start();
+                  isRecording = true;
+                  micDiv.classList.add("recording");
+              } catch (error) {
+                  console.error("Error accessing audio", error);
+              }
+          } else {
+              if (mediaRecorder) {
+                  mediaRecorder.stop();
+                  isRecording = false;
+                  micDiv.classList.remove("recording");
+                  attemptCount++;
+                  loading.style.display = "block";
+              }
+          }
+      });
 
-        function loadFlashcardIndex() {
-            const savedIndex = localStorage.getItem('currentFlashcardIndex_{{ flashcard_set.id }}');
-            if (savedIndex !== null) {
-                currentFlashcardIndex = parseInt(savedIndex, 10);
-            }
-        }
+      flashcard.addEventListener("click", () => {
+          if (!isRecording) {
+              flashcard.classList.toggle("flipped");
+          }
+      });
 
-        micDiv.addEventListener("click", async (event) => {
-            event.stopPropagation();
-            if (!isRecording) {
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorder = new MediaRecorder(stream);
-                    audioChunks = [];
-                    mediaRecorder.ondataavailable = (event) => {
-                        audioChunks.push(event.data);
-                    };
-                    mediaRecorder.onstop = () => {
-                        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-                        const reader = new FileReader();
-                        reader.readAsDataURL(audioBlob);
-                        reader.onloadend = () => {
-                            const base64String = reader.result.split(',')[1];
-                            document.getElementById("audio_data").value = base64String;
-                            checkPronunciation(base64String);
-                        };
-                    };
-                    mediaRecorder.start();
-                    isRecording = true;
-                    micDiv.classList.add("recording");
-                } catch (error) {
-                    console.error("Error accessing audio", error);
-                }
-            } else {
-                if (mediaRecorder) {
-                    mediaRecorder.stop();
-                    isRecording = false;
-                    micDiv.classList.remove("recording");
-                    attemptCount++;
-                    loading.style.display = "block";
-                }
-            }
-        });
+      function checkPronunciation(audioData) {
+          const form = document.getElementById("audioForm");
+          const formData = new FormData(form);
 
-        flashcard.addEventListener("click", () => {
-            if (!isRecording) {
-                flashcard.classList.toggle("flipped");
-            }
-        });
+          fetch("{% url 'check_pronunciation' %}", {
+              method: "POST",
+              body: formData,
+              headers: {
+                  "X-CSRFToken": formData.get("csrfmiddlewaretoken"),
+              },
+          })
+          .then((response) => response.json())
+          .then((data) => {
+              loading.style.display = "none";
+              if (data.correct) {
+                  showCheckmark();
+              } else {
+                  showWrong(data.transcribed_text);
+              }
+          })
+          .catch((error) => {
+              console.error("Error:", error);
+              loading.style.display = "none";
+          });
+      }
 
-        function checkPronunciation(audioData) {
-            const form = document.getElementById("audioForm");
-            const formData = new FormData(form);
+      function showCheckmark() {
+          checkmark.classList.add("show");
+          nextArrow.classList.add("show");
+          transcribedText.textContent = "";
+          transcribedText.style.display = "none";
+          resetMic();
+      }
 
-            fetch("{% url 'check_pronunciation' %}", {
-                method: "POST",
-                body: formData,
-                headers: {
-                    "X-CSRFToken": formData.get("csrfmiddlewaretoken"),
-                },
-            })
-            .then((response) => response.json())
-            .then((data) => {
-                loading.style.display = "none";
-                if (data.correct) {
-                    showCheckmark();
-                } else {
-                    showWrong(data.transcribed_text);
-                }
-            })
-            .catch((error) => {
-                console.error("Error:", error);
-                loading.style.display = "none";
-            });
-        }
+      function showWrong(transcribed) {
+          wrong.classList.add("show");
+          transcribedText.textContent = `You said: ${transcribed}`;
+          transcribedText.style.display = "block";
+          if (attemptCount >= maxAttempts) {
+              nextArrow.classList.add("show");
+              resetMic();
+          }
+      }
 
-        function showCheckmark() {
-            checkmark.classList.add("show");
-            nextArrow.classList.add("show");
-            transcribedText.textContent = "";
-            transcribedText.style.display = "none";
-            resetMic();
-        }
+      function resetMic() {
+          micDiv.classList.remove("recording");
+          isRecording = false;
+          audioChunks = [];
+          attemptCount = 0;
+      }
 
-        function showWrong(transcribed) {
-            wrong.classList.add("show");
-            transcribedText.textContent = `You said: ${transcribed}`;
-            transcribedText.style.display = "block";
-            if (attemptCount >= maxAttempts) {
-                nextArrow.classList.add("show");
-                resetMic();
-            }
-        }
+      function resetUI() {
+          checkmark.classList.remove("show");
+          wrong.classList.remove("show");
+          nextArrow.classList.remove("show");
+          transcribedText.style.display = "none";
+          flashcard.classList.remove("flipped");
+          micDiv.style.display = "block"; // Ensure micDiv is visible
+      }
 
-        function resetMic() {
-            micDiv.classList.remove("recording");
-            isRecording = false;
-            audioChunks = [];
-            attemptCount = 0;
-        }
+      function updateCompletionPercentage() {
+          const percentage = Math.round(((currentFlashcardIndex + 1) / flashcards.length) * 100);
+          completionIndicator.textContent = `${percentage}% Completed`;
 
-        function resetUI() {
-            checkmark.classList.remove("show");
-            wrong.classList.remove("show");
-            nextArrow.classList.remove("show");
-            transcribedText.style.display = "none";
-            flashcard.classList.remove("flipped");
-            resetMic();
-        }
+          // Send update request for every progress change
+          fetch("{% url 'update_progress' %}", {
+              method: "POST",
+              headers: {
+                  "Content-Type": "application/json",
+                  "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+              },
+              body: JSON.stringify({
+                  user_id: "{{ user.id }}",
+                  flashcard_set_id: "{{ flashcard_set.id }}",
+                  percentage: percentage
+              })
+          })
+          .then(response => response.json())
+          .catch(error => console.error('Error:', error));
+      }
 
-        function updateCompletionPercentage() {
-            const percentage = Math.round(((currentFlashcardIndex + 1) / flashcards.length) * 100);
-            completionIndicator.textContent = `${percentage}% Completed`;
-        
-            // Send update request for every progress change
-            fetch("{% url 'update_progress' %}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: JSON.stringify({
-                    user_id: "{{ user.id }}",
-                    flashcard_set_id: "{{ flashcard_set.id }}",
-                    percentage: percentage
-                })
-            })
-            .then(response => response.json())
-            .catch(error => console.error('Error:', error));
-        }
+      nextArrow.addEventListener("click", () => {
+          if (currentFlashcardIndex < flashcards.length - 1) {
+              currentFlashcardIndex++;
+              updateFlashcard();
+          } else {
+              showCongratulationsPopup();
+          }
+      });
 
-        nextArrow.addEventListener("click", () => {
-            if (currentFlashcardIndex < flashcards.length - 1) {
-                currentFlashcardIndex++;
-                updateFlashcard();
-            } else {
-                showCongratulationsPopup();
-            }
-        });
+      function showCongratulationsPopup() {
+          congratulationsPopup.style.display = "block";
+          confetti();
+      }
 
-        function showCongratulationsPopup() {
-            congratulationsPopup.style.display = "block";
-            confetti();
-        }
+      restartButton.addEventListener("click", () => {
+          congratulationsPopup.style.display = "none";
+          currentFlashcardIndex = 0;
+          updateFlashcard();
+      });
 
-        restartButton.addEventListener("click", () => {
-            congratulationsPopup.style.display = "none";
-            currentFlashcardIndex = 0;
-            updateFlashcard();
-        });
+      document.addEventListener("DOMContentLoaded", () => {
 
-        document.addEventListener("DOMContentLoaded", () => {
-            loadFlashcardIndex();
-            updateFlashcard();
-        });
+          loadFlashcardIndex();
+      });
     </script>
-</body>
+  </body>
 </html>

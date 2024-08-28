@@ -15,5 +15,8 @@ urlpatterns = [
     path('save_audio/', views.save_audio, name='save_audio'),
     path('recording/<int:assignment_id>/<int:question_id>/', views.recording, name='recording'),
     path('update-progress/', views.update_progress, name='update_progress'),
-
+    # path("get_index", views.get_index, name="get_index")
+    path('save_flashcard_index/', views.save_flashcard_index, name='save_flashcard_index'),
+    path('get_flashcard_index/', views.get_flashcard_index, name='get_flashcard_index'),
 ]
+

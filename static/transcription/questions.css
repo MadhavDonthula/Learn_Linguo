@@ -82,12 +82,8 @@ h1 {
 }
 
 .mic-icon {
-  box-sizing: border-box;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(2);
-  display: block;
+  position: relative;
+  transform: scale(3);
   width: 16px;
   height: 12px;
   border-bottom-left-radius: 120px;
@@ -95,16 +91,32 @@ h1 {
   border: 2px solid;
   border-top: 0;
   margin-top: 20px;
-  z-index: 4;
-  background-size: cover;
+  z-index: 3;
 }
 
-.flashcard.locked {
-  background-color: green;
+.mic-icon::before,
+.mic-icon::after {
+  content: "";
+  position: absolute;
 }
 
-.flashcard.locked .mic {
-  pointer-events: none;
+.mic-icon::before {
+  width: 2px;
+  height: 5px;
+  top: calc(100% + 1px);
+  left: 50%;
+  transform: translate(-50%, 0);
+  background-color: #fff;
+}
+
+.mic-icon::after {
+  border: 2px solid;
+  width: 8px;
+  height: 18px;
+  left: 50%;
+  top: -10px;
+  border-radius: 4px;
+  transform: translate(-50%, 0);
 }
 
 .mic.disabled {
@@ -157,4 +169,12 @@ h1 {
   padding: 20px;
   border-radius: 10px;
   z-index: 1001;
+}
+
+.flashcard.locked {
+  background-color: green; /* Change to your desired color */
+}
+
+.flashcard.locked h4 {
+  color: black; /* Change text color if necessary */
 }

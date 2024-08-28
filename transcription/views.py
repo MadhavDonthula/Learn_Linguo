@@ -289,3 +289,34 @@ def update_progress(request):
             return JsonResponse({"status": "error", "message": "Flashcard set not found"})
 
     return JsonResponse({"status": "error", "message": "Invalid request"})
+def save_flashcard_index(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        user = request.user
+        flashcard_set_id = data.get('flashcard_set_id')
+        index = data.get('index')
+
+        progress, created = UserFlashcardProgress.objects.get_or_create(
+            user=user,
+            flashcard_set_id=flashcard_set_id,
+            defaults={'current_flashcard_index': index}
+        )
+        if not created:
+            progress.current_flashcard_index = index
+            progress.save()
+
+        return JsonResponse({'status': 'success'})
+
+def get_flashcard_index(request):
+    if request.method == 'GET':
+        user = request.user
+        flashcard_set_id = request.GET.get('flashcard_set_id')
+
+        try:
+            progress = UserFlashcardProgress.objects.get(
+                user=user,
+                flashcard_set_id=flashcard_set_id
+            )
+            return JsonResponse({'index': progress.current_flashcard_index})
+        except UserFlashcardProgress.DoesNotExist:
+            return JsonResponse({'index': 0})

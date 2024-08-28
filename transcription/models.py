@@ -86,6 +86,8 @@ class UserFlashcardProgress(models.Model):
     completed_flashcards = models.IntegerField(default=0)
     completed_percentage = models.FloatField(default=0)  # Ensure this field exists
     has_completed = models.BooleanField(default=False)
+    current_flashcard_index = models.IntegerField(default=0)  # Add this field
+
     
     class Meta:
         unique_together = ('user', 'flashcard_set')
