@@ -84,7 +84,29 @@ def index(request, assignment_id=None):
 def record_audio(request, assignment_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
     questions = assignment.questions.all()
-    return render(request, "transcription/questions.html", {"assignment": assignment, "questions": questions})
+
+    user_progress, created = UserQuestionProgress.objects.get_or_create(
+        user=request.user, assignment=assignment
+    )
+
+    completed_question_ids = user_progress.completed_questions.values_list('id', flat=True)
+
+    questions_data = []
+    for question in questions:
+        questions_data.append({
+            'id': question.id,
+            'question_text': question.question_text,
+            'has_done': question.id in completed_question_ids
+        })
+
+    context = {
+        'assignment': assignment,
+        'questions': questions_data,
+    }
+    return render(request, "transcription/questions.html", context)
+
+from django.http import JsonResponse
+
 
 from django.http import JsonResponse
 
@@ -322,22 +344,25 @@ def get_flashcard_index(request):
             return JsonResponse({'index': 0})
         
 def update_question_status(request):
-    if request.method == 'POST':
-        question_id = request.POST.get('question_id')
-        has_done = request.POST.get('question_has_done') == 'true'
+    if request.method == "POST":
+        question_id = request.POST.get("question_id")
+        has_done = request.POST.get("question_has_done") == "true"
+
         question = get_object_or_404(Question, id=question_id)
-        user = request.user
-
-        progress, created = UserQuestionProgress.objects.get_or_create(
-            user=user,
-            assignment=question.assignment
+        user_progress, created = UserQuestionProgress.objects.get_or_create(
+            user=request.user, assignment=question.assignment
         )
-        question.has_done = has_done
-        question.save()
 
-        progress.update_progress()
-        return JsonResponse({'status': 'success'})
-    return JsonResponse({'status': 'failed'}, status=400)
+        if has_done:
+            user_progress.completed_questions.add(question)
+        else:
+            user_progress.completed_questions.remove(question)
+
+        user_progress.update_progress()
+
+        return JsonResponse({"status": "success"})
+
+    return JsonResponse({"status": "error", "message": "Invalid request"})
 
 def assignment_progress_view(request, assignment_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)

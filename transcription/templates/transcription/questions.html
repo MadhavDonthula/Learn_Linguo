@@ -21,8 +21,7 @@
       <div
         class="flashcard"
         data-question-id="{{ question.id }}"
-        data-has-done="{{ question.has_done }}">
-        <h4>{{ question.question_text }}</h4>
+        data-has-done="{{ question.has_done|yesno:"True,False" }}">        <h4>{{ question.question_text }}</h4>
         <div
           class="text-to-speech"
           onclick="speakAndRecord('{{ question.question_text }}', '{{ question.id }}')">

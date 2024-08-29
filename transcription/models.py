@@ -30,7 +30,6 @@ class Question(models.Model):
     assignment = models.ForeignKey(Assignment, related_name='questions', on_delete=models.CASCADE)
     question_text = models.TextField(default="What is your name?")
     answer = models.TextField(default="My name is Jean.")
-    has_done = models.BooleanField(default=False)
 
     def __str__(self):
         return self.question_text
@@ -118,18 +117,14 @@ class UserFlashcardProgress(models.Model):
 class UserQuestionProgress(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE)
-    completed_questions = models.IntegerField(default=0)
-    total_questions = models.IntegerField(default=0)  # Total number of questions in the assignment
-    completion_percentage = models.FloatField(default=0)
+    completed_questions = models.ManyToManyField(Question, related_name='completed_by_users')
 
     class Meta:
         unique_together = ('user', 'assignment')
 
     def update_progress(self):
         total_questions = self.assignment.questions.count()
-        completed_questions = self.assignment.questions.filter(has_done=True).count()
-        self.completed_questions = completed_questions
-        self.total_questions = total_questions
+        completed_questions = self.completed_questions.count()
         if total_questions > 0:
             self.completion_percentage = (completed_questions / total_questions) * 100
         else:
@@ -137,4 +132,4 @@ class UserQuestionProgress(models.Model):
         self.save()
 
     def __str__(self):
-        return f'{self.user.username} progress in {self.assignment.title}'
+        return f"{self.user.username}'s progress on {self.assignment.title}"
