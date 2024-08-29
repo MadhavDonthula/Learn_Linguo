@@ -18,11 +18,14 @@
     <h1>Questions for {{ assignment.title }}</h1>
     <div class="flashcard-container">
       {% for question in questions %}
-      <div class="flashcard" data-question-id="{{ question.id }}">
+      <div
+        class="flashcard"
+        data-question-id="{{ question.id }}"
+        data-has-done="{{ question.has_done }}">
         <h4>{{ question.question_text }}</h4>
         <div
           class="text-to-speech"
-          data-question-text="{{ question.question_text }}">
+          onclick="speakAndRecord('{{ question.question_text }}', '{{ question.id }}')">
           👾
         </div>
         <div class="mic" data-question-id="{{ question.id }}">
@@ -38,6 +41,7 @@
       <input type="hidden" name="audio_data" id="audio_data" />
       <input type="hidden" name="assignment_id" value="{{ assignment.id }}" />
       <input type="hidden" name="question_id" id="question_id" />
+      <input type="hidden" name="question_has_done" id="question_has_done" />
     </form>
 
     <div id="result-tab" class="result-tab hidden">
@@ -56,33 +60,48 @@
     </div>
 
     <script>
-      let isRecording = false;
-      let mediaRecorder;
-      let audioChunks = [];
-      const answeredQuestions = new Set();
-      const flashcards = document.querySelectorAll(".flashcard");
+      document.addEventListener("DOMContentLoaded", () => {
+        const flashcards = document.querySelectorAll(".flashcard");
 
-      flashcards.forEach((card) => {
-        const mic = card.querySelector(".mic");
-        const tts = card.querySelector(".text-to-speech");
-
-        mic.addEventListener("click", () => {
+        flashcards.forEach((card) => {
           const questionId = card.getAttribute("data-question-id");
+          const hasDone = card.getAttribute("data-has-done") === "True";
 
-          if (!answeredQuestions.has(questionId)) {
-            document.getElementById("question_id").value = questionId;
-            startRecording(questionId, mic);
+          if (hasDone) {
+            card.classList.add("locked");
+          } else {
+            const micDiv = card.querySelector(".mic");
+            micDiv.addEventListener("click", () => {
+              toggleRecording(questionId, micDiv);
+            });
           }
-        });
-
-        tts.addEventListener("click", () => {
-          const questionText = tts.getAttribute("data-question-text");
-          speakQuestion(questionText);
         });
       });
 
-      const startRecording = async (questionId, micDiv) => {
+      let isRecording = false;
+      let mediaRecorder;
+      let audioChunks = [];
+
+      const speakAndRecord = (questionText, questionId) => {
+        speakQuestion(questionText);
+        setTimeout(() => {
+          const micDiv = document.querySelector(
+            `[data-question-id='${questionId}'] .mic`
+          );
+          toggleRecording(questionId, micDiv);
+        }, 3000);
+      };
+
+      const toggleRecording = async (questionId, micDiv) => {
         if (!isRecording) {
+          await startRecording(questionId, micDiv);
+        } else {
+          stopRecording(questionId, micDiv);
+        }
+      };
+
+      const startRecording = async (questionId, micDiv) => {
+        if (navigator.mediaDevices) {
           try {
             const stream = await navigator.mediaDevices.getUserMedia({
               audio: true,
@@ -105,6 +124,7 @@
                   )
                 );
                 document.getElementById("audio_data").value = base64String;
+                document.getElementById("question_id").value = questionId;
                 submitAudioForm(questionId, micDiv);
               };
             };
@@ -116,12 +136,17 @@
             console.error("Error accessing audio", error);
           }
         } else {
-          if (mediaRecorder) {
-            mediaRecorder.stop();
-            isRecording = false;
-            micDiv.classList.remove("recording");
-            audioChunks = []; // Clear the audio chunks
-          }
+          console.error(
+            "MediaRecorder or getUserMedia is not supported by this browser."
+          );
+        }
+      };
+
+      const stopRecording = (questionId, micDiv) => {
+        if (isRecording && mediaRecorder) {
+          mediaRecorder.stop();
+          isRecording = false;
+          micDiv.classList.remove("recording");
         }
       };
 
@@ -156,8 +181,25 @@
       };
 
       const lockAnsweredQuestion = (questionId, micDiv) => {
-        answeredQuestions.add(questionId);
-        micDiv.classList.add("locked");
+        const formData = new FormData();
+        formData.append("question_id", questionId);
+        formData.append("question_has_done", "true");
+        formData.append("csrfmiddlewaretoken", "{{ csrf_token }}");
+
+        fetch("{% url 'update_question_status' %}", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.status === "success") {
+              const flashcard = micDiv.closest(".flashcard");
+              flashcard.classList.add("locked");
+            }
+          })
+          .catch((error) =>
+            console.error("Error updating question status:", error)
+          );
       };
 
       const speakQuestion = (questionText) => {
@@ -168,16 +210,31 @@
           speech.pitch = 1.2;
 
           const voices = window.speechSynthesis.getVoices();
-          const selectedVoice =
-            voices.find(
-              (voice) => voice.lang === "fr-FR" && voice.name.includes("Google")
-            ) || voices[0];
-          speech.voice = selectedVoice;
+          const frenchVoice = voices.find((voice) =>
+            voice.name.toLowerCase().includes("french")
+          );
+          if (frenchVoice) {
+            speech.voice = frenchVoice;
+          }
 
           window.speechSynthesis.speak(speech);
         } else {
-          console.error("Text-to-Speech not supported by this browser.");
+          console.error("Text-to-speech is not supported.");
         }
+      };
+
+      const updateQuestionStatus = (questionId, hasDone) => {
+        fetch("{% url 'update_question_status' %}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            question_id: questionId,
+            has_done: hasDone,
+            csrfmiddlewaretoken: "{{ csrf_token }}",
+          }),
+        });
       };
     </script>
   </body>

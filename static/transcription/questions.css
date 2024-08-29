@@ -119,10 +119,6 @@ h1 {
   transform: translate(-50%, 0);
 }
 
-.mic.disabled {
-  opacity: 0.5;
-}
-
 .result-tab {
   position: fixed;
   top: 50%;
@@ -172,9 +168,10 @@ h1 {
 }
 
 .flashcard.locked {
-  background-color: green; /* Change to your desired color */
+  background-color: #4caf50; /* Green color for locked cards */
+  opacity: 0.5;
+  pointer-events: none; /* Prevent interaction with locked flashcards */
 }
-
-.flashcard.locked h4 {
-  color: black; /* Change text color if necessary */
+.mic.disabled {
+  opacity: 0.5;
 }

@@ -18,5 +18,8 @@ urlpatterns = [
     # path("get_index", views.get_index, name="get_index")
     path('save_flashcard_index/', views.save_flashcard_index, name='save_flashcard_index'),
     path('get_flashcard_index/', views.get_flashcard_index, name='get_flashcard_index'),
+    path("update_question_status", views.update_question_status, name="update_question_status"),
+    path("assignment_progress_view", views.assignment_progress_view, name="assignment_progress_view"),
+
 ]
 

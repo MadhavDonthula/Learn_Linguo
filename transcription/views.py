@@ -10,7 +10,7 @@ import string
 import re
 
 from openai import OpenAI
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress
 from .forms import CreateUserForm
 
 from django.contrib.auth.models import User
@@ -320,3 +320,45 @@ def get_flashcard_index(request):
             return JsonResponse({'index': progress.current_flashcard_index})
         except UserFlashcardProgress.DoesNotExist:
             return JsonResponse({'index': 0})
+        
+def update_question_status(request):
+    if request.method == 'POST':
+        question_id = request.POST.get('question_id')
+        has_done = request.POST.get('question_has_done') == 'true'
+        question = get_object_or_404(Question, id=question_id)
+        user = request.user
+
+        progress, created = UserQuestionProgress.objects.get_or_create(
+            user=user,
+            assignment=question.assignment
+        )
+        question.has_done = has_done
+        question.save()
+
+        progress.update_progress()
+        return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'failed'}, status=400)
+
+def assignment_progress_view(request, assignment_id):
+    assignment = get_object_or_404(Assignment, id=assignment_id)
+    students = UserClassEnrollment.objects.filter(class_code=assignment.class_code).select_related('user')
+
+    data = []
+    headers = ['Username', 'Completion Percentage']
+
+    for student in students:
+        progress, _ = UserQuestionProgress.objects.get_or_create(
+            user=student.user,
+            assignment=assignment
+        )
+        data.append({
+            'Username': student.user.username,
+            'Completion Percentage': f"{round(progress.completion_percentage)}%"
+        })
+
+    context = {
+        'assignment': assignment,
+        'data': data,
+        'headers': headers,
+    }
+    return render(request, 'transcription/assignment_progress.html', context)
