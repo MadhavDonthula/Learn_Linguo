@@ -16,6 +16,10 @@
   </head>
   <body>
     <h1>Questions for {{ assignment.title }}</h1>
+    <div id="progress-indicator">
+      Progress: <span id="completed-questions">0</span>/<span id="total-questions">{{ questions|length }}</span>
+      (<span id="completion-percentage">0</span>%)
+    </div>
     <div class="flashcard-container">
       {% for question in questions %}
       <div
@@ -98,6 +102,31 @@
           stopRecording(questionId, micDiv);
         }
       };
+      function updateProgress() {
+        const completedQuestions = document.querySelectorAll('.flashcard.locked').length;
+        const totalQuestions = {{ questions|length }};
+        const percentage = Math.round((completedQuestions / totalQuestions) * 100);
+
+        document.getElementById('completed-questions').textContent = completedQuestions;
+        document.getElementById('completion-percentage').textContent = percentage;
+
+        // Send progress update to server
+        fetch("{% url 'update_question_progress' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}"
+            },
+            body: JSON.stringify({
+                assignment_id: "{{ assignment.id }}",
+                completed_questions: completedQuestions,
+                total_questions: totalQuestions
+            })
+        })
+        .then(response => response.json())
+        .then(data => console.log('Progress updated:', data))
+        .catch(error => console.error('Error updating progress:', error));
+    }
 
       const startRecording = async (questionId, micDiv) => {
         if (navigator.mediaDevices) {
@@ -194,6 +223,8 @@
             if (data.status === "success") {
               const flashcard = micDiv.closest(".flashcard");
               flashcard.classList.add("locked");
+              updateProgress();  // Add this line
+
             }
           })
           .catch((error) =>
@@ -235,6 +266,8 @@
           }),
         });
       };
+      document.addEventListener("DOMContentLoaded", updateProgress);
+
     </script>
   </body>
 </html>

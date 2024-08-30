@@ -116,8 +116,10 @@ class UserFlashcardProgress(models.Model):
 
 class UserQuestionProgress(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    assignment = models.ForeignKey(Assignment, on_delete=models.CASCADE)
-    completed_questions = models.ManyToManyField(Question, related_name='completed_by_users')
+    assignment = models.ForeignKey('Assignment', on_delete=models.CASCADE)
+    completed_questions = models.ManyToManyField('Question', related_name='completed_by_users')
+    completed_percentage = models.FloatField(default=0)
+    has_completed = models.BooleanField(default=False)
 
     class Meta:
         unique_together = ('user', 'assignment')
@@ -126,9 +128,13 @@ class UserQuestionProgress(models.Model):
         total_questions = self.assignment.questions.count()
         completed_questions = self.completed_questions.count()
         if total_questions > 0:
-            self.completion_percentage = (completed_questions / total_questions) * 100
+            self.completed_percentage = (completed_questions / total_questions) * 100
         else:
-            self.completion_percentage = 0
+            self.completed_percentage = 0
+        
+        if self.completed_percentage == 100:
+            self.has_completed = True
+        
         self.save()
 
     def __str__(self):

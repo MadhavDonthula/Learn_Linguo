@@ -387,3 +387,27 @@ def assignment_progress_view(request, assignment_id):
         'headers': headers,
     }
     return render(request, 'transcription/assignment_progress.html', context)
+
+def update_question_progress(request):
+    data = json.loads(request.body)
+    assignment_id = data.get('assignment_id')
+    completed_questions = data.get('completed_questions')
+    total_questions = data.get('total_questions')
+
+    try:
+        assignment = Assignment.objects.get(id=assignment_id)
+        progress, created = UserQuestionProgress.objects.get_or_create(
+            user=request.user,
+            assignment=assignment
+        )
+        
+        progress.completed_percentage = (completed_questions / total_questions) * 100
+        if progress.completed_percentage == 100:
+            progress.has_completed = True
+        progress.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Progress updated'})
+    except Assignment.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Assignment not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

@@ -3,7 +3,7 @@ from django.urls import path, reverse
 from django.shortcuts import render, redirect
 from django.http import Http404
 from django.utils.html import format_html
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question, UserQuestionProgress
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.shortcuts import render, get_object_or_404
@@ -64,33 +64,50 @@ def class_code_progress_view(request, class_code_id):
         class_code = ClassCode.objects.get(id=class_code_id)
     except ClassCode.DoesNotExist:
         raise Http404("Class code not found")
-
+    
     flashcard_sets = class_code.flashcard_sets.all()
+    assignments = class_code.assignments.all()
     students = UserClassEnrollment.objects.filter(class_code=class_code).select_related('user')
-
+    
     data = []
-    headers = ['Username']  # Initialize headers with 'Username'
+    headers = ['Username']
     
     for flashcard_set in flashcard_sets:
-        headers.append(flashcard_set.name)
-
+        headers.append(f"Flashcards: {flashcard_set.name}")
+    
+    for assignment in assignments:
+        headers.append(f"Assignment: {assignment.title}")
+    
     for student in students:
         student_progress = {'Username': student.user.username}
-
+        
         for flashcard_set in flashcard_sets:
             progress = UserFlashcardProgress.objects.filter(user=student.user, flashcard_set=flashcard_set).first()
             if progress is None:
-                student_progress[flashcard_set.name] = 'Not started'
+                student_progress[f"Flashcards: {flashcard_set.name}"] = 'Not started'
             else:
                 if progress.has_completed:
-                    student_progress[flashcard_set.name] = "100%"
+                    student_progress[f"Flashcards: {flashcard_set.name}"] = "100%"
                 elif progress.completed_percentage is not None:
-                    student_progress[flashcard_set.name] = f"{round(progress.completed_percentage)}%"
+                    student_progress[f"Flashcards: {flashcard_set.name}"] = f"{round(progress.completed_percentage)}%"
                 else:
-                    student_progress[flashcard_set.name] = 'In progress'
-    
+                    student_progress[f"Flashcards: {flashcard_set.name}"] = 'In progress'
+        
+        for assignment in assignments:
+            progress = UserQuestionProgress.objects.filter(user=student.user, assignment=assignment).first()
+            if progress is None:
+                student_progress[f"Assignment: {assignment.title}"] = 'Not started'
+            else:
+                total_questions = assignment.questions.count()
+                completed_questions = progress.completed_questions.count()
+                if total_questions > 0:
+                    percentage = round((completed_questions / total_questions) * 100)
+                    student_progress[f"Assignment: {assignment.title}"] = f"{completed_questions}/{total_questions} ({percentage}%)"
+                else:
+                    student_progress[f"Assignment: {assignment.title}"] = 'No questions'
+        
         data.append(student_progress)
-
+    
     context = {
         'class_code': class_code,
         'data': data,
