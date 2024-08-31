@@ -6,79 +6,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flashcards</title>
     <link rel="stylesheet" href="{% static 'transcription/flashcards.css' %}" />
-    <style>
-      .completion-indicator {
-        position: fixed;
-        top: 10px;
-        left: 10px;
-        background: #fff;
-        border: 1px solid #ccc;
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-size: 14px;
-        z-index: 1000;
-      }
-
-      .congratulations-popup {
-        display: none;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: #fff;
-        border: 2px solid #ccc;
-        padding: 20px;
-        text-align: center;
-        z-index: 1001;
-        border-radius: 10px;
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-      }
-
-      .congratulations-popup h1 {
-        margin-bottom: 20px;
-        color: black;
-      }
-
-      .restart-button {
-        background-color: #28a745;
-        color: white;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 16px;
-      }
-
-      .restart-button:hover {
-        background-color: #218838;
-      }
-    </style>
   </head>
   <body>
-    <div class="flashcard" id="flashcard">
-      <div class="flashcard-front">
-        <h1 id="french-word">{{ flashcard.french_word }}</h1>
-        <div id="mic" class="mic">
-          <i class="mic-icon"></i>
+    <div class="container">
+      <h1>French Flashcards</h1>
+      <div class="flashcard" id="flashcard">
+        <div class="flashcard-inner">
+          <div class="flashcard-front">
+            <div class="word" id="french-word"></div>
+            <div class="translation" id="english-translation"></div>
+            <div class="icon mic" id="mic">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round">
+                <path
+                  d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+              </svg>
+              <div class="recording-indicator"></div>
+            </div>
+          </div>
+          <div class="flashcard-back">
+            <div class="word" id="english-translation-back"></div>
+          </div>
         </div>
       </div>
-      <div class="flashcard-back">
-        <h1 id="english-translation">{{ flashcard.english_translation }}</h1>
+      <div class="checkmark" id="checkmark">✅</div>
+      <div class="wrong" id="wrong">❌</div>
+      <div class="transcribed-text" id="transcribed-text"></div>
+      <div class="loading" id="loading">Loading...</div>
+      <div class="progress-container">
+        <div class="progress-bar" id="progressBar"></div>
+        <div id="completionText"></div>
       </div>
-    </div>
-    <div class="checkmark" id="checkmark">✅</div>
-    <div class="wrong" id="wrong">❌</div>
-    <div class="transcribed-text" id="transcribed-text"></div>
-    <div class="next-arrow" id="next-arrow">➡️</div>
-    <div class="loading" id="loading">Loading...</div>
-    <div class="completion-indicator" id="completion-indicator">
-      {{ completion_percentage }}% Completed
-    </div>
-
-    <!-- Congratulations Popup -->
-    <div class="congratulations-popup" id="congratulations-popup">
-      <h1>Congratulations! You finished: {{ flashcard_set.name }}</h1>
-      <button class="restart-button" id="restart-button">Restart</button>
+      <div class="navigation">
+        <div class="nav-icon" id="prevArrow">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </div>
+        <div class="nav-icon" id="nextArrow">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </div>
+      </div>
     </div>
 
     <form id="audioForm" method="POST" style="display: none">
@@ -96,6 +86,11 @@
         value="{{ flashcard_set.id }}" />
     </form>
 
+    <div class="congratulations-popup" id="congratulations-popup">
+      <h1>Congratulations! You finished: {{ flashcard_set.name }}</h1>
+      <button class="restart-button" id="restart-button">Restart</button>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
     <script>
       let isRecording = false;
@@ -105,11 +100,17 @@
       let currentFlashcardIndex = 0;
       const maxAttempts = 2;
 
+      let audioContext;
+      let analyser;
+      let microphone;
+      let animationId;
+
       const micDiv = document.getElementById("mic");
       const checkmark = document.getElementById("checkmark");
       const wrong = document.getElementById("wrong");
       const flashcard = document.getElementById("flashcard");
-      const nextArrow = document.getElementById("next-arrow");
+      const nextArrow = document.getElementById("nextArrow");
+      const prevArrow = document.getElementById("prevArrow");
       const loading = document.getElementById("loading");
       const transcribedText = document.getElementById("transcribed-text");
       const completionIndicator = document.getElementById("completion-indicator");
@@ -118,11 +119,11 @@
 
       const flashcards = [
           {% for flashcard in flashcards %}
-            {
+          {
               id: {{ flashcard.id }},
               french_word: "{{ flashcard.french_word|escapejs }}",
               english_translation: "{{ flashcard.english_translation|escapejs }}"
-            },
+          },
           {% endfor %}
       ];
 
@@ -192,6 +193,14 @@
                   mediaRecorder.start();
                   isRecording = true;
                   micDiv.classList.add("recording");
+
+                  // Set up audio analysis
+                  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                  analyser = audioContext.createAnalyser();
+                  microphone = audioContext.createMediaStreamSource(stream);
+                  microphone.connect(analyser);
+                  analyser.fftSize = 256;
+                  animateRecordingIndicator();
               } catch (error) {
                   console.error("Error accessing audio", error);
               }
@@ -202,9 +211,32 @@
                   micDiv.classList.remove("recording");
                   attemptCount++;
                   loading.style.display = "block";
+
+                  // Stop audio analysis
+                  if (audioContext) {
+                      audioContext.close();
+                  }
+                  if (animationId) {
+                      cancelAnimationFrame(animationId);
+                  }
               }
           }
       });
+
+      function animateRecordingIndicator() {
+          if (!isRecording) return;
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          analyser.getByteFrequencyData(dataArray);
+
+          const average = dataArray.reduce((acc, val) => acc + val, 0) / dataArray.length;
+          const scale = 1 + (average / 256) * 0.5; // Max scale of 1.5
+
+          const recordingIndicator = micDiv.querySelector('.recording-indicator');
+          recordingIndicator.style.transform = `scale(${scale})`;
+
+          animationId = requestAnimationFrame(animateRecordingIndicator);
+      }
 
       flashcard.addEventListener("click", () => {
           if (!isRecording) {
@@ -261,6 +293,14 @@
           isRecording = false;
           audioChunks = [];
           attemptCount = 0;
+          if (audioContext) {
+              audioContext.close();
+          }
+          if (animationId) {
+              cancelAnimationFrame(animationId);
+          }
+          const recordingIndicator = micDiv.querySelector('.recording-indicator');
+          recordingIndicator.style.transform = 'scale(1)';
       }
 
       function resetUI() {
@@ -269,14 +309,17 @@
           nextArrow.classList.remove("show");
           transcribedText.style.display = "none";
           flashcard.classList.remove("flipped");
-          micDiv.style.display = "block"; // Ensure micDiv is visible
+          micDiv.style.display = "block";
       }
 
       function updateCompletionPercentage() {
           const percentage = Math.round(((currentFlashcardIndex + 1) / flashcards.length) * 100);
-          completionIndicator.textContent = `${percentage}% Completed`;
+          const progressBar = document.getElementById('progressBar');
+          const completionText = document.getElementById('completionText');
 
-          // Send update request for every progress change
+          progressBar.style.width = `${percentage}%`;
+          completionText.textContent = `${percentage}% Completed`;
+
           fetch("{% url 'update_progress' %}", {
               method: "POST",
               headers: {
@@ -302,6 +345,13 @@
           }
       });
 
+      prevArrow.addEventListener("click", () => {
+          if (currentFlashcardIndex > 0) {
+              currentFlashcardIndex--;
+              updateFlashcard();
+          }
+      });
+
       function showCongratulationsPopup() {
           congratulationsPopup.style.display = "block";
           confetti();
@@ -314,7 +364,6 @@
       });
 
       document.addEventListener("DOMContentLoaded", () => {
-
           loadFlashcardIndex();
       });
     </script>

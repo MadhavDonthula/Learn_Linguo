@@ -1,65 +1,51 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Questions</title>
-    <link
-      rel="stylesheet"
-      type="text/css"
-      href="{% static 'transcription/questions.css' %}" />
-    <link
-      rel="stylesheet"
-      type="text/css"
-      href="{% static 'transcription/result.css' %}" />
-  </head>
-  <body>
-    <h1>Questions for {{ assignment.title }}</h1>
-    <div id="progress-indicator">
-      Progress: <span id="completed-questions">0</span>/<span id="total-questions">{{ questions|length }}</span>
-      (<span id="completion-percentage">0</span>%)
-    </div>
-    <div class="flashcard-container">
-      {% for question in questions %}
-      <div
-        class="flashcard"
-        data-question-id="{{ question.id }}"
-        data-has-done="{{ question.has_done|yesno:"True,False" }}">        <h4>{{ question.question_text }}</h4>
-        <div
-          class="text-to-speech"
-          onclick="speakAndRecord('{{ question.question_text }}', '{{ question.id }}')">
-          👾
+    <link rel="stylesheet" type="text/css" href="{% static 'transcription/questions.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'transcription/result.css' %}">
+</head>
+<body>
+    <div class="container">
+        <h1>Questions for {{ assignment.title }}</h1>
+        <div id="progress-indicator">
+            Progress: <span id="completed-questions">0</span>/<span id="total-questions">{{ questions|length }}</span>
+            (<span id="completion-percentage">0</span>%)
         </div>
-        <div class="mic" data-question-id="{{ question.id }}">
-          <i class="mic-icon"></i>
-          <div class="mic-shadow"></div>
+        <div class="flashcard-container">
+            {% for question in questions %}
+            <div class="flashcard" data-question-id="{{ question.id }}" data-has-done="{{ question.has_done|yesno:"True,False" }}">
+                <div class="text-to-speech" onclick="speakAndRecord('{{ question.question_text }}', '{{ question.id }}')">🔊</div>
+                <h4>{{ question.question_text }}</h4>
+                <div class="mic" data-question-id="{{ question.id }}">
+                    <div class="mic-icon"></div>
+                </div>
+            </div>
+            {% endfor %}
         </div>
-      </div>
-      {% endfor %}
     </div>
 
     <form id="audioForm" method="post" action="{% url 'save_audio' %}">
-      {% csrf_token %}
-      <input type="hidden" name="audio_data" id="audio_data" />
-      <input type="hidden" name="assignment_id" value="{{ assignment.id }}" />
-      <input type="hidden" name="question_id" id="question_id" />
-      <input type="hidden" name="question_has_done" id="question_has_done" />
+        {% csrf_token %}
+        <input type="hidden" name="audio_data" id="audio_data">
+        <input type="hidden" name="assignment_id" value="{{ assignment.id }}">
+        <input type="hidden" name="question_id" id="question_id">
+        <input type="hidden" name="question_has_done" id="question_has_done">
     </form>
 
     <div id="result-tab" class="result-tab hidden">
-      <div class="close-btn" onclick="closeResultTab()">×</div>
-      <h2>Original Question:</h2>
-      <p id="question-text"></p>
-
-      <h2>Your Answer:</h2>
-      <p id="transcribed-text"></p>
-
-      <h2>Expected Answer:</h2>
-      <p id="expected-answer"></p>
-
-      <h2>Your Score:</h2>
-      <p id="score"></p>
+        <div class="close-btn" onclick="closeResultTab()">×</div>
+        <h2>Original Question:</h2>
+        <p id="question-text"></p>
+        <h2>Your Answer:</h2>
+        <p id="transcribed-text"></p>
+        <h2>Expected Answer:</h2>
+        <p id="expected-answer"></p>
+        <h2>Your Score:</h2>
+        <p id="score"></p>
     </div>
 
     <script>
@@ -215,22 +201,21 @@
         formData.append("csrfmiddlewaretoken", "{{ csrf_token }}");
 
         fetch("{% url 'update_question_status' %}", {
-          method: "POST",
-          body: formData,
+            method: "POST",
+            body: formData,
         })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.status === "success") {
-              const flashcard = micDiv.closest(".flashcard");
-              flashcard.classList.add("locked");
-              updateProgress();  // Add this line
-
-            }
-          })
-          .catch((error) =>
-            console.error("Error updating question status:", error)
-          );
-      };
+            .then((response) => response.json())
+            .then((data) => {
+                if (data.status === "success") {
+                    const flashcard = micDiv.closest(".flashcard");
+                    flashcard.classList.add("locked");
+                    updateProgress();  // Add this line to update progress after locking
+                }
+            })
+            .catch((error) =>
+                console.error("Error updating question status:", error)
+            );
+    };
 
       const speakQuestion = (questionText) => {
         if ("speechSynthesis" in window) {

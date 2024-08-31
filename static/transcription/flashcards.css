@@ -1,25 +1,60 @@
+:root {
+  --background-color: #1a4b77;
+  --card-color: #e6f3ff;
+  --text-color: #333;
+  --icon-color: #1a4b77;
+  --nav-icon-color: #ffffff;
+}
+
 body {
-  overflow: hidden;
-  background: radial-gradient(circle, #3b0e68 0%, #1a084e 100%);
-  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: "Arial", sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.container {
+  text-align: center;
+  width: 90%;
+  max-width: 600px;
 }
 
 h1 {
-  text-align: center;
-  color: white;
-  margin-top: 20px;
-  margin-bottom: 4rem;
+  color: var(--nav-icon-color);
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+  font-weight: 600;
+  font-family: "Montserrat", sans-serif;
 }
 
 .flashcard {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 300px;
-  height: 400px;
-  background: white;
-  transform: translate(-50%, -50%);
+  background-color: var(--card-color);
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 3 / 2;
+  cursor: pointer;
   perspective: 1000px;
+}
+
+.flashcard-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+.flashcard.flipped .flashcard-inner {
+  transform: rotateY(180deg);
 }
 
 .flashcard-front,
@@ -27,146 +62,144 @@ h1 {
   position: absolute;
   width: 100%;
   height: 100%;
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-}
-
-.flashcard-front {
-  background: #4a2c79;
-  color: white;
+  padding: 2rem;
+  box-sizing: border-box;
 }
 
 .flashcard-back {
-  background: #3a1f5d;
-  color: white;
   transform: rotateY(180deg);
 }
 
-.flashcard.flipped .flashcard-front {
-  transform: rotateY(180deg);
+.word {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-color);
+  word-break: break-word;
+  max-width: 100%;
+  text-align: center;
+  transition: transform 0.3s ease;
 }
 
-.flashcard.flipped .flashcard-back {
-  transform: rotateY(360deg);
+.translation {
+  font-size: 1.5rem;
+  color: var(--text-color);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.flashcard:hover .word {
+  transform: translateY(-10px);
+}
+
+.flashcard:hover .translation {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.icon {
+  position: absolute;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  width: 24px;
+  height: 24px;
+}
+
+.icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .mic {
-  color: #fff;
-  cursor: pointer;
-  margin-top: 20px;
-  position: relative;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 10;
 }
 
-.mic::before,
-.mic::after {
-  content: "";
+.recording-indicator {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.icon.mic.recording .recording-indicator {
+  border-color: #dc3545;
+}
+
+.navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.nav-icon {
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  width: 32px;
+  height: 32px;
+}
+
+.progress-container {
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  position: relative;
+  height: 20px;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: var(--nav-icon-color);
+  width: 0%;
+  transition: width 0.5s ease-in-out;
+}
+
+#completionText {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  border-radius: 100%;
-  z-index: 2;
-  transition: background-color 0.5s ease, width 0.5s ease, height 0.5s ease;
-}
-
-.mic::before {
-  width: 100px;
-  height: 100px;
-  background-color: #1a084e;
-}
-
-.mic::after {
-  width: 60px;
-  height: 60px;
-  background-color: #2f1e5f;
-}
-
-.mic.recording::before {
-  background-color: #8b0000;
-}
-
-.mic.recording::after {
-  background-color: #a52a2a;
-  animation: circle-size-recording 1.5s ease-in-out infinite alternate;
-}
-
-.mic-icon {
-  position: relative;
-  transform: scale(3);
-  width: 16px;
-  height: 12px;
-  border-bottom-left-radius: 120px;
-  border-bottom-right-radius: 120px;
-  border: 2px solid;
-  border-top: 0;
-  margin-top: 20px;
-  z-index: 3;
-}
-
-.mic-icon::before,
-.mic-icon::after {
-  content: "";
-  position: absolute;
-}
-
-.mic-icon::before {
-  width: 2px;
-  height: 5px;
-  top: calc(100% + 1px);
-  left: 50%;
-  transform: translate(-50%, 0);
-  background-color: #fff;
-}
-
-.mic-icon::after {
-  border: 2px solid;
-  width: 8px;
-  height: 18px;
-  left: 50%;
-  top: -10px;
-  border-radius: 4px;
-  transform: translate(-50%, 0);
+  font-size: 0.9rem;
+  color: var(--text-color);
+  font-weight: bold;
+  z-index: 1;
 }
 
 .checkmark,
-.wrong,
-.next-arrow {
+.wrong {
   display: none;
   position: absolute;
   top: 10px;
-  right: 10px;
+  left: 10px;
   font-size: 30px;
-  color: green;
+  z-index: 10;
+}
+
+.checkmark {
+  color: #28a745;
 }
 
 .wrong {
-  color: red;
+  color: #dc3545;
 }
 
 .checkmark.show,
-.wrong.show,
-.next-arrow.show {
+.wrong.show {
   display: block;
-}
-
-.next-arrow {
-  top: 50%;
-  right: 10px;
-}
-.loading {
-  display: none;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 20px;
-  color: white;
-  background-color: rgba(0, 0, 0, 0.7);
-  padding: 10px 20px;
-  border-radius: 5px;
 }
 
 .transcribed-text {
@@ -176,10 +209,73 @@ h1 {
   left: 50%;
   transform: translateX(-50%);
   font-size: 16px;
-  color: #ff4444;
+  color: #dc3545;
   background-color: rgba(255, 255, 255, 0.8);
   padding: 5px 10px;
   border-radius: 5px;
   text-align: center;
   max-width: 80%;
+  z-index: 10;
+}
+
+.loading {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+  color: var(--nav-icon-color);
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 10px 20px;
+  border-radius: 5px;
+  z-index: 20;
+}
+
+.congratulations-popup {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border: 2px solid #ccc;
+  padding: 20px;
+  text-align: center;
+  z-index: 1001;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.congratulations-popup h1 {
+  margin-bottom: 20px;
+  color: black;
+}
+
+.restart-button {
+  background-color: #28a745;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.restart-button:hover {
+  background-color: #218838;
+}
+
+@media (max-width: 600px) {
+  .flashcard {
+    aspect-ratio: 4 / 3;
+  }
+
+  .word {
+    font-size: 2rem;
+  }
+
+  .translation {
+    font-size: 1.2rem;
+  }
 }
