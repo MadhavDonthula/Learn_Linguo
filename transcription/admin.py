@@ -73,11 +73,16 @@ admin.site.register(ClassCode, ClassCodeAdmin)
 def class_code_progress_view(request, class_code_id):
     class_code = get_object_or_404(ClassCode, id=class_code_id)
 
+    # Initialize headers to ensure it always has a value
+    headers = ['Username']
+
     # Caching the progress data
     cache_key = f"class_progress_{class_code_id}"
-    data = cache.get(cache_key)
+    cached_data = cache.get(cache_key)
 
-    if not data:
+    if cached_data:
+        data, headers = cached_data
+    else:
         flashcard_sets = class_code.flashcard_sets.all()
         assignments = class_code.assignments.all()
         students = UserClassEnrollment.objects.filter(class_code=class_code).select_related('user').prefetch_related(
@@ -86,7 +91,6 @@ def class_code_progress_view(request, class_code_id):
         )
 
         data = []
-        headers = ['Username']
 
         # Populate headers
         for flashcard_set in flashcard_sets:
@@ -132,8 +136,8 @@ def class_code_progress_view(request, class_code_id):
             
             data.append(student_progress)
 
-        # Cache the processed data
-        cache.set(cache_key, data, timeout=60 * 15)  # Cache for 15 minutes
+        # Cache the processed data along with headers
+        cache.set(cache_key, (data, headers), timeout=60 * 15)  # Cache for 15 minutes
 
     # Pagination
     paginator = Paginator(data, 20)  # Show 20 students per page
