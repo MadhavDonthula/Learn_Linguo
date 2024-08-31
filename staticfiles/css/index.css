@@ -1,44 +1,136 @@
 body {
-  background-color: #e6e6fa;
-  font-family: sans-serif;
+  font-family: "Poppins", sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f0f7ff;
+  color: #333;
 }
 
-h1 {
-  color: #333;
+.navbar {
+  background: linear-gradient(135deg, #4a90e2, #5ca0f2);
+  color: white;
+  padding: 1rem 2rem;
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: white;
+  text-decoration: none;
+  letter-spacing: 1px;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+}
+
+.username {
+  margin-right: 1rem;
+  font-weight: 500;
+}
+
+.signout-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.signout-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.section-title {
+  color: #2c3e50;
+  text-align: center;
   margin-top: 3rem;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+  font-weight: 600;
 }
 
 .container {
   display: flex;
-  flex-direction: row;
-  margin-left: 4rem;
-  margin-top: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2rem;
+  padding: 0 2rem;
+  margin-bottom: 3rem;
 }
 
 .box {
-  height: 8rem;
-  width: 8rem;
-  background-color: #9e72c3;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+  background-color: white;
+  border-radius: 15px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-  border-radius: 1.5rem;
+  transition: all 0.3s ease;
+  width: 250px;
   cursor: pointer;
 }
 
 .box:hover {
-  background-color: #8258a3; /* Slightly darker color on hover */
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
 }
 
-h4 {
-  text-decoration: none;
-  color: black;
-  font-size: 1.1rem;
-  font-family: Arial, Helvetica, sans-serif;
-  font-weight: 650;
+.box-header {
+  color: white;
+  padding: 1.2rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.box-content {
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.box-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.assignments .box-header {
+  background: linear-gradient(135deg, #e74c3c, #ff6b6b);
+}
+
+.flashcards .box-header {
+  background: linear-gradient(135deg, #2ecc71, #4cd137);
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .logo {
+    margin-bottom: 1rem;
+  }
+
+  .user-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .box {
+    width: 100%;
+    max-width: 300px;
+  }
 }
