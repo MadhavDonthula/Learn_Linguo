@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils.translation import gettext_lazy as _
 import re
+import html
+import unicodedata
+
 from django.db import models
 
 class ClassCode(models.Model):
@@ -43,6 +46,8 @@ class FlashcardSet(models.Model):
         return self.name
 
     def save(self, *args, **kwargs):
+        # Normalize the bulk_flashcards input
+        self.bulk_flashcards = unicodedata.normalize('NFKC', self.bulk_flashcards)
         super().save(*args, **kwargs)
         if self.bulk_flashcards:
             self.create_flashcards_from_bulk()
@@ -53,12 +58,36 @@ class FlashcardSet(models.Model):
         for pair in flashcard_pairs:
             if ',' in pair:
                 french, english = pair.split(',', 1)
+                french = self.clean_text(french)
+                english = self.clean_text(english)
                 Flashcard.objects.create(
                     flashcard_set=self,
-                    french_word=french.strip(),
-                    english_translation=english.strip()
+                    french_word=french,
+                    english_translation=english
                 )
 
+    @staticmethod
+    def clean_text(text):
+        # Unescape HTML entities
+        text = html.unescape(text)
+        # Normalize Unicode characters
+        text = unicodedata.normalize('NFKC', text)
+        # Replace specific problematic characters
+        text = text.replace('&#x27;', "'").replace('&apos;', "'")
+        return text.strip()
+
+class Flashcard(models.Model):
+    flashcard_set = models.ForeignKey(FlashcardSet, related_name='flashcards', on_delete=models.CASCADE)
+    french_word = models.TextField()
+    english_translation = models.TextField()
+
+    def __str__(self):
+        return f"{self.french_word} - {self.english_translation}"
+
+    def save(self, *args, **kwargs):
+        self.french_word = FlashcardSet.clean_text(self.french_word)
+        self.english_translation = FlashcardSet.clean_text(self.english_translation)
+        super().save(*args, **kwargs)
 class Flashcard(models.Model):
     flashcard_set = models.ForeignKey(FlashcardSet, related_name='flashcards', on_delete=models.CASCADE)
     french_word = models.CharField(max_length=200, default="Bonjour")

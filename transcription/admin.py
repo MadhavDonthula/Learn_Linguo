@@ -15,17 +15,25 @@ from django.shortcuts import render, get_object_or_404
 class FlashcardInline(admin.TabularInline):
     model = Flashcard
     extra = 1
-
 @admin.register(FlashcardSet)
 class FlashcardSetAdmin(admin.ModelAdmin):
     inlines = [FlashcardInline]
     fields = ('name', 'bulk_flashcards')
+
+    def save_model(self, request, obj, form, change):
+        obj.bulk_flashcards = FlashcardSet.clean_text(obj.bulk_flashcards)
+        super().save_model(request, obj, form, change)
 
 @admin.register(Flashcard)
 class FlashcardAdmin(admin.ModelAdmin):
     list_display = ('french_word', 'english_translation', 'flashcard_set')
     list_filter = ('flashcard_set',)
 
+    def save_model(self, request, obj, form, change):
+        obj.french_word = FlashcardSet.clean_text(obj.french_word)
+        obj.english_translation = FlashcardSet.clean_text(obj.english_translation)
+        super().save_model(request, obj, form, change)
+        
 class ClassCodeAdmin(admin.ModelAdmin):
     filter_horizontal = ('assignments', 'flashcard_sets')
     list_display = ('get_class_name', 'get_class_code', 'view_progress_link')

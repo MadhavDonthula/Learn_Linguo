@@ -120,8 +120,8 @@
           {% for flashcard in flashcards %}
             {
               id: {{ flashcard.id }},
-              french_word: "{{ flashcard.french_word }}",
-              english_translation: "{{ flashcard.english_translation }}"
+              french_word: "{{ flashcard.french_word|escapejs }}",
+              english_translation: "{{ flashcard.english_translation|escapejs }}"
             },
           {% endfor %}
       ];
