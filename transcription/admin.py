@@ -7,6 +7,8 @@ from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcar
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.shortcuts import render, get_object_or_404
+from django.core.paginator import Paginator
+from django.core.cache import cache
 
 
 # Register models
@@ -67,60 +69,84 @@ class ClassCodeAdmin(admin.ModelAdmin):
 
 # Register the ClassCodeAdmin with the model
 admin.site.register(ClassCode, ClassCodeAdmin)
+
 def class_code_progress_view(request, class_code_id):
-    try:
-        class_code = ClassCode.objects.get(id=class_code_id)
-    except ClassCode.DoesNotExist:
-        raise Http404("Class code not found")
-    
-    flashcard_sets = class_code.flashcard_sets.all()
-    assignments = class_code.assignments.all()
-    students = UserClassEnrollment.objects.filter(class_code=class_code).select_related('user')
-    
-    data = []
-    headers = ['Username']
-    
-    for flashcard_set in flashcard_sets:
-        headers.append(f"Flashcards: {flashcard_set.name}")
-    
-    for assignment in assignments:
-        headers.append(f"Assignment: {assignment.title}")
-    
-    for student in students:
-        student_progress = {'Username': student.user.username}
-        
+    class_code = get_object_or_404(ClassCode, id=class_code_id)
+
+    # Caching the progress data
+    cache_key = f"class_progress_{class_code_id}"
+    data = cache.get(cache_key)
+
+    if not data:
+        flashcard_sets = class_code.flashcard_sets.all()
+        assignments = class_code.assignments.all()
+        students = UserClassEnrollment.objects.filter(class_code=class_code).select_related('user').prefetch_related(
+            'user__userflashcardprogress_set',
+            'user__userquestionprogress_set__assignment'
+        )
+
+        data = []
+        headers = ['Username']
+
+        # Populate headers
         for flashcard_set in flashcard_sets:
-            progress = UserFlashcardProgress.objects.filter(user=student.user, flashcard_set=flashcard_set).first()
-            if progress is None:
-                student_progress[f"Flashcards: {flashcard_set.name}"] = 'Not started'
-            else:
-                if progress.has_completed:
-                    student_progress[f"Flashcards: {flashcard_set.name}"] = "100%"
-                elif progress.completed_percentage is not None:
-                    student_progress[f"Flashcards: {flashcard_set.name}"] = f"{round(progress.completed_percentage)}%"
-                else:
-                    student_progress[f"Flashcards: {flashcard_set.name}"] = 'In progress'
+            headers.append(f"Flashcards: {flashcard_set.name}")
         
         for assignment in assignments:
-            progress = UserQuestionProgress.objects.filter(user=student.user, assignment=assignment).first()
-            if progress is None:
-                student_progress[f"Assignment: {assignment.title}"] = 'Not started'
-            else:
-                total_questions = assignment.questions.count()
-                completed_questions = progress.completed_questions.count()
-                if total_questions > 0:
-                    percentage = round((completed_questions / total_questions) * 100)
-                    student_progress[f"Assignment: {assignment.title}"] = f"{completed_questions}/{total_questions} ({percentage}%)"
+            headers.append(f"Assignment: {assignment.title}")
+
+        # Preload progress data
+        flashcard_progresses = UserFlashcardProgress.objects.filter(user__in=[student.user for student in students], flashcard_set__in=flashcard_sets).select_related('flashcard_set')
+        question_progresses = UserQuestionProgress.objects.filter(user__in=[student.user for student in students], assignment__in=assignments).select_related('assignment')
+
+        flashcard_progress_dict = { (progress.user_id, progress.flashcard_set_id): progress for progress in flashcard_progresses }
+        question_progress_dict = { (progress.user_id, progress.assignment_id): progress for progress in question_progresses }
+
+        for student in students:
+            student_progress = {'Username': student.user.username}
+            
+            for flashcard_set in flashcard_sets:
+                progress = flashcard_progress_dict.get((student.user.id, flashcard_set.id))
+                if progress is None:
+                    student_progress[f"Flashcards: {flashcard_set.name}"] = 'Not started'
                 else:
-                    student_progress[f"Assignment: {assignment.title}"] = 'No questions'
-        
-        data.append(student_progress)
-    
+                    if progress.has_completed:
+                        student_progress[f"Flashcards: {flashcard_set.name}"] = "100%"
+                    elif progress.completed_percentage is not None:
+                        student_progress[f"Flashcards: {flashcard_set.name}"] = f"{round(progress.completed_percentage)}%"
+                    else:
+                        student_progress[f"Flashcards: {flashcard_set.name}"] = 'In progress'
+            
+            for assignment in assignments:
+                progress = question_progress_dict.get((student.user.id, assignment.id))
+                if progress is None:
+                    student_progress[f"Assignment: {assignment.title}"] = 'Not started'
+                else:
+                    total_questions = assignment.questions.count()
+                    completed_questions = progress.completed_questions.count()
+                    if total_questions > 0:
+                        percentage = round((completed_questions / total_questions) * 100)
+                        student_progress[f"Assignment: {assignment.title}"] = f"{completed_questions}/{total_questions} ({percentage}%)"
+                    else:
+                        student_progress[f"Assignment: {assignment.title}"] = 'No questions'
+            
+            data.append(student_progress)
+
+        # Cache the processed data
+        cache.set(cache_key, data, timeout=60 * 15)  # Cache for 15 minutes
+
+    # Pagination
+    paginator = Paginator(data, 20)  # Show 20 students per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
     context = {
         'class_code': class_code,
-        'data': data,
+        'data': page_obj,
         'headers': headers,
+        'paginator': paginator,
     }
+
     return render(request, 'transcription/class_code_progress.html', context)
 
 # User admin with class progress link
