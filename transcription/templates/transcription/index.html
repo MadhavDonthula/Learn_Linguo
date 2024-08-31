@@ -1,39 +1,58 @@
 {% load static %}
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>Home</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Learn Linguo - Study Dashboard</title>
     <link
-      rel="stylesheet"
-      type="text/css"
-      href="{% static 'transcription/index.css' %}" />
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap"
+      rel="stylesheet" />
+    <link rel="stylesheet" href="{% static 'transcription/index.css' %}" />
   </head>
   <body>
-   
-    <h1>Assignments</h1>
-    <div class="container">
-      {% if assignments %}
-        {% for assignment in assignments %}
-        <div class="box" onClick="window.location.href='{% url "questions" assignment.id %}'"> 
-        <h4>{{ assignment.title }}</h4>
+    <nav class="navbar">
+      <a class="logo">Learn Linguo</a>
+      <div class="user-actions">
+        <span class="username">{{ user.username }}</span>
+        <form method="POST" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button type="submit" class="signout-btn">Sign Out</button>
+        </form>
+      </div>
+    </nav>
+
+    <h2 class="section-title">Assignments</h2>
+    <div class="container assignments">
+      {% if assignments %} {% for assignment in assignments %}
+      <div
+        class="box"
+        onClick="window.location.href='{% url 'questions' assignment.id %}'">
+        <div class="box-header">{{ assignment.title }}</div>
+        <div class="box-content">
+          <div class="box-icon">📚</div>
+          <p>Due: {{ assignment.due_date }}</p>
         </div>
-        {% endfor %}
-      {% else %}
-        <p>No assignments found for this class code.</p>
+      </div>
+      {% endfor %} {% else %}
+      <p>No assignments found for this class code.</p>
       {% endif %}
     </div>
 
-    <h1>Flashcards</h1>
-    <div class="container">
+    <h2 class="section-title">Flashcards</h2>
+    <div class="container flashcards">
       {% if flashcard_sets %} {% for flashcard_set in flashcard_sets %}
       <div
         class="box"
         onClick="window.location.href='{% url 'flashcards' flashcard_set.id %}'">
-        <h4>{{ flashcard_set.name }}</h4>
+        <div class="box-header">{{ flashcard_set.name }}</div>
+        <div class="box-content">
+          <div class="box-icon">🗂️</div>
+          <p>{{ flashcard_set.flashcards.count }} cards</p>
+        </div>
       </div>
       {% endfor %} {% else %}
-      <p class="no-sets">No flashcard sets found.</p>
+      <p>No flashcard sets found for this class code.</p>
       {% endif %}
     </div>
   </body>

@@ -20,6 +20,8 @@ urlpatterns = [
     path("update_question_status", views.update_question_status, name="update_question_status"),
         path("update_question_progress", views.update_question_progress, name="update_question_progress"),
     path("assignment_progress_view", views.assignment_progress_view, name="assignment_progress_view"),
+        path('check-class-code/<str:code>/', views.check_class_code, name='check_class_code'),
+
 
 ]
 

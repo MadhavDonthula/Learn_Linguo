@@ -4,10 +4,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Home</title>
+    <title>Study Dashboard - Home</title>
     <link rel="stylesheet" href="{% static 'transcription/home.css' %}" />
   </head>
-  
   <body>
     <div class="wrapper">
       <div class="round"></div>
@@ -17,66 +16,94 @@
       <div class="round"></div>
       <div class="round"></div>
       <div class="round"></div>
-      <div class="round"></div>
-      <div class="round"></div>
-      <div class="round"></div>
-      <div class="round"></div>
-      <div class="round"></div>
-      <div class="round"></div>
-      <div class="round"></div>
     </div>
+
     <div class="navbar-container">
-      <div class="logo"></div>
+      <div class="logo">Study Dashboard</div>
       <div class="navbar">
         <span>Hello, {{ request.user.username }}</span>
         {% if user_class_code %}
-            <span>Class Code: {{ user_class_code.code }}</span>
+        <span>Class Code: {{ user_class_code.code }}</span>
         {% endif %}
         <a href="{% url 'logout' %}">Logout</a>
+      </div>
     </div>
-    </div>
+
     <div class="input-container">
-      <form method="post">
+      <form method="post" id="class-code-form">
         {% csrf_token %}
         <div class="input-box">
-          <input
-            type="text"
-            id="class_code"
-            name="class_code"
-            class="curvy-input"
-            maxlength="5"
-            required
-            oninput="handleInput(this)"
-            placeholder="Class Code" />
-          <div class="underscore" id="underscore-container">
-            <span class="underscore-span" id="char1">_</span>
-            <span class="underscore-span" id="char2">_</span>
-            <span class="underscore-span" id="char3">_</span>
-            <span class="underscore-span" id="char4">_</span>
-            <span class="underscore-span" id="char5">_</span>
+          <input type="text" name="class_code" id="class_code" hidden />
+          <div class="code-inputs">
+            <input type="text" maxlength="1" pattern="[A-Za-z0-9]" required />
+            <input type="text" maxlength="1" pattern="[A-Za-z0-9]" required />
+            <input type="text" maxlength="1" pattern="[A-Za-z0-9]" required />
+            <input type="text" maxlength="1" pattern="[A-Za-z0-9]" required />
+            <input type="text" maxlength="1" pattern="[A-Za-z0-9]" required />
           </div>
         </div>
+        <p id="error-message" class="error" style="display: none"></p>
         {% if error %}
-        <p class="error"> {{ error }} </p>
+        <p class="error">{{ error }}</p>
         {% endif %}
       </form>
     </div>
 
     <script>
-      function handleInput(input) {
-        const value = input.value.toUpperCase(); // Convert input to uppercase
-        const underscores = document.querySelectorAll(".underscore-span");
+      document.addEventListener("DOMContentLoaded", function () {
+        const form = document.getElementById("class-code-form");
+        const inputs = document.querySelectorAll(".code-inputs input");
+        const hiddenInput = document.getElementById("class_code");
+        const errorMessage = document.getElementById("error-message");
 
-        for (let i = 0; i < underscores.length; i++) {
-          underscores[i].textContent = value[i] ? value[i] : "_";
-          underscores[i].style.opacity = value.length > 0 ? "1" : "0"; // Show underscores only if there is input
+        inputs.forEach((input, index) => {
+          input.addEventListener("input", function (e) {
+            if (this.value.length === this.maxLength) {
+              if (index < inputs.length - 1) {
+                inputs[index + 1].focus();
+              }
+            }
+            updateHiddenInput();
+          });
+
+          input.addEventListener("keydown", function (e) {
+            if (e.key === "Backspace" && this.value.length === 0 && index > 0) {
+              inputs[index - 1].focus();
+            }
+          });
+        });
+
+        function updateHiddenInput() {
+          hiddenInput.value = Array.from(inputs)
+            .map((input) => input.value)
+            .join("")
+            .toUpperCase();
+          if (hiddenInput.value.length === 5) {
+            checkClassCode(hiddenInput.value);
+          }
         }
 
-        // Automatically submit form when the code is fully entered
-        if (value.length === 5) {
-          input.form.submit();
+        function checkClassCode(code) {
+          fetch(`/check-class-code/${code}/`)
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.exists) {
+                form.submit();
+              } else {
+                errorMessage.textContent =
+                  "Invalid class code. Please try again.";
+                errorMessage.style.display = "block";
+                inputs.forEach((input) => (input.value = ""));
+                inputs[0].focus();
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              errorMessage.textContent = "An error occurred. Please try again.";
+              errorMessage.style.display = "block";
+            });
         }
-      }
+      });
     </script>
   </body>
 </html>

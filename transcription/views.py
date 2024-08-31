@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from tempfile import NamedTemporaryFile
 import base64
+from django.views.decorators.http import require_GET
+
 import json
 import string
 import re
@@ -401,7 +403,7 @@ def update_question_progress(request):
             assignment=assignment
         )
         
-        progress.completed_percentage = (completed_questions / total_questions) * 100
+        progress.completed_percentage = ((completed_questions + 1) / total_questions) * 100
         if progress.completed_percentage == 100:
             progress.has_completed = True
         progress.save()
@@ -411,3 +413,8 @@ def update_question_progress(request):
         return JsonResponse({'status': 'error', 'message': 'Assignment not found'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+@require_GET
+def check_class_code(request, code):
+    exists = ClassCode.objects.filter(code=code).exists()
+    return JsonResponse({'exists': exists})
