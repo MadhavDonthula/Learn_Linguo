@@ -40,6 +40,8 @@
       <div class="checkmark" id="checkmark">✅</div>
       <div class="wrong" id="wrong">❌</div>
       <div class="transcribed-text" id="transcribed-text"></div>
+      <div class="score" id="score"></div>
+      <div class="missing-words" id="missing-words"></div>
       <div class="loading" id="loading">Loading...</div>
       <div class="progress-container">
         <div class="progress-bar" id="progressBar"></div>
@@ -93,192 +95,196 @@
 
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
     <script>
-      let isRecording = false;
-      let mediaRecorder;
-      let audioChunks = [];
-      let attemptCount = 0;
-      let currentFlashcardIndex = 0;
-      const maxAttempts = 2;
+        let isRecording = false;
+        let mediaRecorder;
+        let audioChunks = [];
+        let attemptCount = 0;
+        let currentFlashcardIndex = 0;
+        const maxAttempts = 2;
 
-      let audioContext;
-      let analyser;
-      let microphone;
-      let animationId;
+        let audioContext;
+        let analyser;
+        let microphone;
+        let animationId;
 
-      const micDiv = document.getElementById("mic");
-      const checkmark = document.getElementById("checkmark");
-      const wrong = document.getElementById("wrong");
-      const flashcard = document.getElementById("flashcard");
-      const nextArrow = document.getElementById("nextArrow");
-      const prevArrow = document.getElementById("prevArrow");
-      const loading = document.getElementById("loading");
-      const transcribedText = document.getElementById("transcribed-text");
-      const completionIndicator = document.getElementById("completion-indicator");
-      const congratulationsPopup = document.getElementById("congratulations-popup");
-      const restartButton = document.getElementById("restart-button");
+        const micDiv = document.getElementById("mic");
+        const checkmark = document.getElementById("checkmark");
+        const wrong = document.getElementById("wrong");
+        const flashcard = document.getElementById("flashcard");
+        const nextArrow = document.getElementById("nextArrow");
+        const prevArrow = document.getElementById("prevArrow");
+        const loading = document.getElementById("loading");
+        const transcribedText = document.getElementById("transcribed-text");
+        const scoreElement = document.getElementById("score");
+        const missingWordsElement = document.getElementById("missing-words");
+        const completionIndicator = document.getElementById("completion-indicator");
+        const congratulationsPopup = document.getElementById("congratulations-popup");
+        const restartButton = document.getElementById("restart-button");
 
-      const flashcards = [
-          {% for flashcard in flashcards %}
-          {
-              id: {{ flashcard.id }},
-              french_word: "{{ flashcard.french_word|escapejs }}",
-              english_translation: "{{ flashcard.english_translation|escapejs }}"
-          },
-          {% endfor %}
-      ];
+        const flashcards = [
+            {% for flashcard in flashcards %}
+            {
+                id: {{ flashcard.id }},
+                french_word: "{{ flashcard.french_word|escapejs }}",
+                english_translation: "{{ flashcard.english_translation|escapejs }}"
+            },
+            {% endfor %}
+        ];
 
-      function updateFlashcard() {
-          const currentFlashcard = flashcards[currentFlashcardIndex];
-          document.getElementById('french-word').textContent = currentFlashcard.french_word;
-          document.getElementById('english-translation').textContent = currentFlashcard.english_translation;
-          document.getElementById('flashcard_id').value = currentFlashcard.id;
-          document.getElementById('flashcard_set_id').value = "{{ flashcard_set.id }}";
-          resetUI();
+        function updateFlashcard() {
+            const currentFlashcard = flashcards[currentFlashcardIndex];
+            document.getElementById('french-word').textContent = currentFlashcard.french_word;
+            document.getElementById('english-translation').textContent = currentFlashcard.english_translation;
+            document.getElementById('flashcard_id').value = currentFlashcard.id;
+            document.getElementById('flashcard_set_id').value = "{{ flashcard_set.id }}";
+            resetUI();
 
-          saveFlashcardIndex();
-          updateCompletionPercentage();
+            saveFlashcardIndex();
+            updateCompletionPercentage();
 
-          nextArrow.classList.add("show");
-      }
+            nextArrow.classList.add("show");
+        }
 
-      function saveFlashcardIndex() {
-          fetch("{% url 'save_flashcard_index' %}", {
-              method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-                  "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
-              },
-              body: JSON.stringify({
-                  flashcard_set_id: "{{ flashcard_set.id }}",
-                  index: currentFlashcardIndex
-              })
-          })
-          .then(response => response.json())
-          .then(data => {
-              console.log('Flashcard index saved:', data);
-          })
-          .catch(error => console.error('Error:', error));
-      }
+        function saveFlashcardIndex() {
+            fetch("{% url 'save_flashcard_index' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    flashcard_set_id: "{{ flashcard_set.id }}",
+                    index: currentFlashcardIndex
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Flashcard index saved:', data);
+            })
+            .catch(error => console.error('Error:', error));
+        }
 
-      function loadFlashcardIndex() {
-          fetch("{% url 'get_flashcard_index' %}?flashcard_set_id={{ flashcard_set.id }}")
-              .then(response => response.json())
-              .then(data => {
-                  currentFlashcardIndex = data.index || 0;
-                  updateFlashcard();
-              })
-              .catch(error => console.error('Error:', error));
-      }
+        function loadFlashcardIndex() {
+            fetch("{% url 'get_flashcard_index' %}?flashcard_set_id={{ flashcard_set.id }}")
+                .then(response => response.json())
+                .then(data => {
+                    currentFlashcardIndex = data.index || 0;
+                    updateFlashcard();
+                })
+                .catch(error => console.error('Error:', error));
+        }
 
-      micDiv.addEventListener("click", async (event) => {
-          event.stopPropagation();
-          if (!isRecording) {
-              try {
-                  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                  mediaRecorder = new MediaRecorder(stream);
-                  audioChunks = [];
-                  mediaRecorder.ondataavailable = (event) => {
-                      audioChunks.push(event.data);
-                  };
-                  mediaRecorder.onstop = () => {
-                      const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-                      const reader = new FileReader();
-                      reader.readAsDataURL(audioBlob);
-                      reader.onloadend = () => {
-                          const base64String = reader.result.split(',')[1];
-                          document.getElementById("audio_data").value = base64String;
-                          checkPronunciation(base64String);
-                      };
-                  };
-                  mediaRecorder.start();
-                  isRecording = true;
-                  micDiv.classList.add("recording");
+        micDiv.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                    };
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = () => {
+                            const base64String = reader.result.split(',')[1];
+                            document.getElementById("audio_data").value = base64String;
+                            checkPronunciation(base64String);
+                        };
+                    };
+                    mediaRecorder.start();
+                    isRecording = true;
+                    micDiv.classList.add("recording");
 
-                  // Set up audio analysis
-                  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                  analyser = audioContext.createAnalyser();
-                  microphone = audioContext.createMediaStreamSource(stream);
-                  microphone.connect(analyser);
-                  analyser.fftSize = 256;
-                  animateRecordingIndicator();
-              } catch (error) {
-                  console.error("Error accessing audio", error);
-              }
-          } else {
-              if (mediaRecorder) {
-                  mediaRecorder.stop();
-                  isRecording = false;
-                  micDiv.classList.remove("recording");
-                  attemptCount++;
-                  loading.style.display = "block";
+                    // Set up audio analysis
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser = audioContext.createAnalyser();
+                    microphone = audioContext.createMediaStreamSource(stream);
+                    microphone.connect(analyser);
+                    analyser.fftSize = 256;
+                    animateRecordingIndicator();
+                } catch (error) {
+                    console.error("Error accessing audio", error);
+                }
+            } else {
+                if (mediaRecorder) {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    micDiv.classList.remove("recording");
+                    attemptCount++;
+                    loading.style.display = "block";
 
-                  // Stop audio analysis
-                  if (audioContext) {
-                      audioContext.close();
-                  }
-                  if (animationId) {
-                      cancelAnimationFrame(animationId);
-                  }
-              }
-          }
-      });
+                    // Stop audio analysis
+                    if (audioContext) {
+                        audioContext.close();
+                    }
+                    if (animationId) {
+                        cancelAnimationFrame(animationId);
+                    }
+                }
+            }
+        });
 
-      function animateRecordingIndicator() {
-          if (!isRecording) return;
+        function animateRecordingIndicator() {
+            if (!isRecording) return;
 
-          const dataArray = new Uint8Array(analyser.frequencyBinCount);
-          analyser.getByteFrequencyData(dataArray);
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            analyser.getByteFrequencyData(dataArray);
 
-          const average = dataArray.reduce((acc, val) => acc + val, 0) / dataArray.length;
-          const scale = 1 + (average / 256) * 0.5; // Max scale of 1.5
+            const average = dataArray.reduce((acc, val) => acc + val, 0) / dataArray.length;
+            const scale = 1 + (average / 256) * 0.5; // Max scale of 1.5
 
-          const recordingIndicator = micDiv.querySelector('.recording-indicator');
-          recordingIndicator.style.transform = `scale(${scale})`;
+            const recordingIndicator = micDiv.querySelector('.recording-indicator');
+            recordingIndicator.style.transform = `scale(${scale})`;
 
-          animationId = requestAnimationFrame(animateRecordingIndicator);
-      }
+            animationId = requestAnimationFrame(animateRecordingIndicator);
+        }
 
-      flashcard.addEventListener("click", () => {
-          if (!isRecording) {
-              flashcard.classList.toggle("flipped");
-          }
-      });
+        flashcard.addEventListener("click", () => {
+            if (!isRecording) {
+                flashcard.classList.toggle("flipped");
+            }
+        });
 
-      function checkPronunciation(audioData) {
-          const form = document.getElementById("audioForm");
-          const formData = new FormData(form);
+        function checkPronunciation(audioData) {
+            const form = document.getElementById("audioForm");
+            const formData = new FormData(form);
 
-          fetch("{% url 'check_pronunciation' %}", {
-              method: "POST",
-              body: formData,
-              headers: {
-                  "X-CSRFToken": formData.get("csrfmiddlewaretoken"),
-              },
-          })
-          .then((response) => response.json())
-          .then((data) => {
-              loading.style.display = "none";
-              if (data.correct) {
-                  showCheckmark();
-              } else {
-                  showWrong(data.transcribed_text);
-              }
-          })
-          .catch((error) => {
-              console.error("Error:", error);
-              loading.style.display = "none";
-          });
-      }
+            fetch("{% url 'check_pronunciation' %}", {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-CSRFToken": formData.get("csrfmiddlewaretoken"),
+                },
+            })
+            .then((response) => response.json())
+            .then((data) => {
+                loading.style.display = "none";
+                if (data.correct) {
+                    showCheckmark();
+                } else {
+                    showWrong(data.transcribed_text, data.score, data.missing_words);
+                }
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+                loading.style.display = "none";
+            });
+        }
 
-      function showCheckmark() {
-          checkmark.classList.add("show");
-          nextArrow.classList.add("show");
-          transcribedText.textContent = "";
-          transcribedText.style.display = "none";
-          resetMic();
-      }
+        function showCheckmark() {
+            checkmark.classList.add("show");
+            nextArrow.classList.add("show");
+            transcribedText.textContent = "";
+            transcribedText.style.display = "none";
+            scoreElement.textContent = "";
+            missingWordsElement.textContent = "";
+            resetMic();
+        }
 
-      function showWrong(transcribed) {
+        function showWrong(transcribed) {
           wrong.classList.add("show");
           transcribedText.textContent = `You said: ${transcribed}`;
           transcribedText.style.display = "block";
@@ -288,84 +294,86 @@
           }
       }
 
-      function resetMic() {
-          micDiv.classList.remove("recording");
-          isRecording = false;
-          audioChunks = [];
-          attemptCount = 0;
-          if (audioContext) {
-              audioContext.close();
-          }
-          if (animationId) {
-              cancelAnimationFrame(animationId);
-          }
-          const recordingIndicator = micDiv.querySelector('.recording-indicator');
-          recordingIndicator.style.transform = 'scale(1)';
-      }
+        function resetMic() {
+            micDiv.classList.remove("recording");
+            isRecording = false;
+            audioChunks = [];
+            attemptCount = 0;
+            if (audioContext) {
+                audioContext.close();
+            }
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            const recordingIndicator = micDiv.querySelector('.recording-indicator');
+            recordingIndicator.style.transform = 'scale(1)';
+        }
 
-      function resetUI() {
-          checkmark.classList.remove("show");
-          wrong.classList.remove("show");
-          nextArrow.classList.remove("show");
-          transcribedText.style.display = "none";
-          flashcard.classList.remove("flipped");
-          micDiv.style.display = "block";
-      }
+        function resetUI() {
+            checkmark.classList.remove("show");
+            wrong.classList.remove("show");
+            nextArrow.classList.remove("show");
+            transcribedText.style.display = "none";
+            scoreElement.textContent = "";
+            missingWordsElement.textContent = "";
+            flashcard.classList.remove("flipped");
+            micDiv.style.display = "block";
+        }
 
-      function updateCompletionPercentage() {
-          const percentage = Math.round(((currentFlashcardIndex + 1) / flashcards.length) * 100);
-          const progressBar = document.getElementById('progressBar');
-          const completionText = document.getElementById('completionText');
+        function updateCompletionPercentage() {
+            const percentage = Math.round(((currentFlashcardIndex + 1) / flashcards.length) * 100);
+            const progressBar = document.getElementById('progressBar');
+            const completionText = document.getElementById('completionText');
 
-          progressBar.style.width = `${percentage}%`;
-          completionText.textContent = `${percentage}% Completed`;
+            progressBar.style.width = `${percentage}%`;
+            completionText.textContent = `${percentage}% Completed`;
 
-          fetch("{% url 'update_progress' %}", {
-              method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-                  "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
-              },
-              body: JSON.stringify({
-                  user_id: "{{ user.id }}",
-                  flashcard_set_id: "{{ flashcard_set.id }}",
-                  percentage: percentage
-              })
-          })
-          .then(response => response.json())
-          .catch(error => console.error('Error:', error));
-      }
+            fetch("{% url 'update_progress' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    user_id: "{{ user.id }}",
+                    flashcard_set_id: "{{ flashcard_set.id }}",
+                    percentage: percentage
+                })
+            })
+            .then(response => response.json())
+            .catch(error => console.error('Error:', error));
+        }
 
-      nextArrow.addEventListener("click", () => {
-          if (currentFlashcardIndex < flashcards.length - 1) {
-              currentFlashcardIndex++;
-              updateFlashcard();
-          } else {
-              showCongratulationsPopup();
-          }
-      });
+        nextArrow.addEventListener("click", () => {
+            if (currentFlashcardIndex < flashcards.length - 1) {
+                currentFlashcardIndex++;
+                updateFlashcard();
+            } else {
+                showCongratulationsPopup();
+            }
+        });
 
-      prevArrow.addEventListener("click", () => {
-          if (currentFlashcardIndex > 0) {
-              currentFlashcardIndex--;
-              updateFlashcard();
-          }
-      });
+        prevArrow.addEventListener("click", () => {
+            if (currentFlashcardIndex > 0) {
+                currentFlashcardIndex--;
+                updateFlashcard();
+            }
+        });
 
-      function showCongratulationsPopup() {
-          congratulationsPopup.style.display = "block";
-          confetti();
-      }
+        function showCongratulationsPopup() {
+            congratulationsPopup.style.display = "block";
+            confetti();
+        }
 
-      restartButton.addEventListener("click", () => {
-          congratulationsPopup.style.display = "none";
-          currentFlashcardIndex = 0;
-          updateFlashcard();
-      });
+        restartButton.addEventListener("click", () => {
+            congratulationsPopup.style.display = "none";
+            currentFlashcardIndex = 0;
+            updateFlashcard();
+        });
 
-      document.addEventListener("DOMContentLoaded", () => {
-          loadFlashcardIndex();
-      });
+        document.addEventListener("DOMContentLoaded", () => {
+            loadFlashcardIndex();
+        });
     </script>
   </body>
 </html>

@@ -6,7 +6,7 @@ from django.contrib import messages
 from tempfile import NamedTemporaryFile
 import base64
 from django.views.decorators.http import require_GET
-
+import unicodedata
 import json
 import string
 import re
@@ -157,22 +157,6 @@ def save_audio(request):
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
-def compare_texts(transcribed_text, answer):
-    def normalize_text(text):
-        text = text.lower()
-        text = text.translate(str.maketrans("", "", string.punctuation))
-        return text
-
-    transcribed_text = normalize_text(transcribed_text)
-    answer = normalize_text(answer)
-    
-    transcribed_words = set(transcribed_text.split())
-    answer_words = set(answer.split())
-    
-    missing_words = answer_words - transcribed_words
-    correct_words = answer_words & transcribed_words
-    score = len(correct_words) / len(answer_words) * 100
-    return ", ".join(missing_words), round(score, 2)
 
 
 @login_required(login_url="login")
@@ -222,14 +206,30 @@ def flashcards(request, set_id):
         'completion_percentage': round(completion_percentage, 2),
     })
 
-
 def remove_punctuation_and_accents(text):
-    translation_table = str.maketrans('', '', '…?')
-    normalized_text = text.translate(translation_table)
-    normalized_text = re.sub(r'[^\w\s]', '', normalized_text)
-    normalized_text = normalized_text.strip().lower()
-    return normalized_text
+    # Remove content within parentheses
+    text = re.sub(r'\([^)]*\)', '', text)
+    
+    # Normalize Unicode characters
+    text = unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('ASCII')
+    
+    # Remove remaining punctuation and convert to lowercase
+    text = re.sub(r'[^\w\s]', '', text).lower().strip()
+    
+    return text
 
+def compare_texts(transcribed_text, answer):
+    transcribed_text = remove_punctuation_and_accents(transcribed_text)
+    answer = remove_punctuation_and_accents(answer)
+    
+    transcribed_words = set(transcribed_text.split())
+    answer_words = set(answer.split())
+    
+    correct_words = answer_words & transcribed_words
+    missing_words = answer_words - transcribed_words
+    
+    score = len(correct_words) / len(answer_words) * 100
+    return ", ".join(missing_words), round(score, 2)
 
 def check_pronunciation(request):
     if request.method == "POST":
@@ -238,7 +238,7 @@ def check_pronunciation(request):
 
         if not flashcard_id.isdigit():
             return JsonResponse({"error": "Invalid ID format"})
-        
+
         flashcard_id = int(flashcard_id)
 
         try:
@@ -260,16 +260,18 @@ def check_pronunciation(request):
                         )
 
                 transcribed_text = response.strip()
-                
+
                 flashcard = Flashcard.objects.get(id=flashcard_id)
                 correct_text = flashcard.french_word.strip()
 
-                correct_text = remove_punctuation_and_accents(correct_text)
-                transcribed_text = remove_punctuation_and_accents(transcribed_text)
+                missing_words, score = compare_texts(transcribed_text, correct_text)
 
-                is_correct = correct_text == transcribed_text
-
-                return JsonResponse({"correct": is_correct, "transcribed_text": transcribed_text})
+                return JsonResponse({
+                    "correct": score >= 80,  # Consider it correct if the score is 80% or higher
+                    "transcribed_text": transcribed_text,
+                    "score": score,
+                    "missing_words": missing_words
+                })
             else:
                 return JsonResponse({"error": "Invalid audio data format"})
         except Exception as e:
