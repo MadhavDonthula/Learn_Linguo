@@ -10,9 +10,11 @@ import unicodedata
 import json
 import string
 import re
+from difflib import SequenceMatcher
+
 
 from openai import OpenAI
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts
 from .forms import CreateUserForm
 
 from django.contrib.auth.models import User
@@ -91,14 +93,15 @@ def record_audio(request, assignment_id):
         user=request.user, assignment=assignment
     )
 
-    completed_question_ids = user_progress.completed_questions.values_list('id', flat=True)
-
     questions_data = []
     for question in questions:
+        question_attempts, _ = UserQuestionAttempts.objects.get_or_create(
+            user=request.user, question=question, defaults={'attempts_left': 2}
+        )
         questions_data.append({
             'id': question.id,
             'question_text': question.question_text,
-            'has_done': question.id in completed_question_ids
+            'attempts_left': question_attempts.attempts_left
         })
 
     context = {
@@ -106,9 +109,6 @@ def record_audio(request, assignment_id):
         'questions': questions_data,
     }
     return render(request, "transcription/questions.html", context)
-
-from django.http import JsonResponse
-
 
 from django.http import JsonResponse
 
@@ -127,7 +127,7 @@ def save_audio(request):
                 temp_audio_file.write(audio_bytes)
                 temp_audio_file.flush()
 
-                client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
+                client = OpenAI(api_key="sk-qtvZYUkCq-UovQC1v3ZvTzMeRSHgs_8TLZOM9HO88-T3BlbkFJ2FFPiJVX_qfjtsaUKBH-GJQtz9uQsdjdGoz8jmq1cA")
                 with open(temp_audio_file.name, "rb") as wav_file:
                     transcription = client.audio.transcriptions.create(
                         model="whisper-1",
@@ -137,18 +137,24 @@ def save_audio(request):
                     )
 
             transcribed_text = transcription.strip()
+            
+            # Retrieve the assignment and question
             assignment = get_object_or_404(Assignment, id=assignment_id)
             selected_question = get_object_or_404(Question, id=question_id, assignment=assignment)
-            reference_answer = selected_question.answer
 
-            missing_words, score = compare_texts(transcribed_text, reference_answer)
+            # Perform AI evaluation
+            evaluation = get_ai_evaluation(client, selected_question.question_text, transcribed_text)
+
+            # Parse the evaluation response
+            evaluation_lines = evaluation.split('\n')
+            score = evaluation_lines[0].split(':')[1].strip()
+            feedback = evaluation_lines[1].split(':')[1].strip()
 
             return JsonResponse({
                 "transcribed_text": transcribed_text,
-                "answer": reference_answer,
                 "score": score,
+                "feedback": feedback,
                 "question": selected_question.question_text,
-                "missing_words": missing_words,
             })
 
         except Exception as e:
@@ -156,7 +162,37 @@ def save_audio(request):
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
+def get_ai_evaluation(client, question, student_answer):
+    prompt = f"""As a French teacher, evaluate:
+    Question: {question}
+    Answer: {student_answer}
 
+    Grade 0-100. Prioritize answering the specific question, but be lenient on grammar for beginners.
+
+    Scoring guide:
+    0: No answer provided or completely unrelated
+    1-50: Unrelated or doesn't address question
+    51-70: Partially addresses question with errors
+    71-85: Addresses question with some errors
+    86-100: Correctly addresses question, minor errors allowed
+
+    If the answer is empty or just whitespace, score it 0 and provide feedback encouraging the student to attempt an answer.
+
+    Provide brief feedback in English with a tip for improvement.
+
+    Format:
+    Score: [score]
+    Feedback: [Brief feedback with improvement tip]"""
+
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo-0125",
+        messages=[
+            {"role": "system", "content": "You are a French evaluation assistant for beginners."},
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=200
+    )
+    return response.choices[0].message.content
 
 
 @login_required(login_url="login")
@@ -217,20 +253,46 @@ def remove_punctuation_and_accents(text):
     text = re.sub(r'[^\w\s]', '', text).lower().strip()
     
     return text
+def evaluate_answer(user_answer, expected_answer):
+    # Normalize answers: remove punctuation, convert to lowercase
+    user_answer = re.sub(r'[^\w\s]', '', user_answer.lower())
+    expected_answer = re.sub(r'[^\w\s]', '', expected_answer.lower())
 
-def compare_texts(transcribed_text, answer):
-    transcribed_text = remove_punctuation_and_accents(transcribed_text)
-    answer = remove_punctuation_and_accents(answer)
-    
-    transcribed_words = set(transcribed_text.split())
-    answer_words = set(answer.split())
-    
-    correct_words = answer_words & transcribed_words
-    missing_words = answer_words - transcribed_words
-    
-    score = len(correct_words) / len(answer_words) * 100
-    return ", ".join(missing_words), round(score, 2)
+    # Extract the verb and object from both answers
+    user_parts = user_answer.split()
+    expected_parts = expected_answer.split()
 
+    # Check verb
+    user_verb = user_parts[0] if user_parts else ""
+    expected_verb = expected_parts[0] if expected_parts else ""
+    verb_score = SequenceMatcher(None, user_verb, expected_verb).ratio()
+
+    # Check object (allowing for alternatives)
+    user_object = ' '.join(user_parts[1:]) if len(user_parts) > 1 else ""
+    expected_object = ' '.join(expected_parts[1:]) if len(expected_parts) > 1 else ""
+    
+    # Replace placeholders with regex pattern
+    expected_object_pattern = re.sub(r'\[.*?\]', r'.*?', expected_object)
+    object_match = re.search(expected_object_pattern, user_object)
+    
+    object_score = 1 if object_match else SequenceMatcher(None, user_object, expected_object).ratio()
+
+    # Calculate final score
+    final_score = (verb_score * 0.4 + object_score * 0.6) * 100
+
+    return round(final_score, 2)
+
+def compare_texts(transcribed_text, reference_answer):
+    score = evaluate_answer(transcribed_text, reference_answer)
+    
+    # Identify missing key elements
+    missing_words = []
+    for word in reference_answer.split():
+        if word.startswith('[') and word.endswith(']'):
+            if word[1:-1].lower() not in transcribed_text.lower():
+                missing_words.append(word[1:-1])
+    
+    return ", ".join(missing_words), score
 def check_pronunciation(request):
     if request.method == "POST":
         audio_data = request.POST.get("audio_data", "")
@@ -249,7 +311,7 @@ def check_pronunciation(request):
                     temp_audio_file.write(audio_bytes)
                     temp_audio_file.flush()
 
-                    client = OpenAI(api_key="sk-J2RNSZ1E4guMaqT5AMG7MVpL4WQUfdcf7TRTtSQY7nT3BlbkFJ6JnQAvpAboZjLyl9hiwTR2Fkf7D2IhFCM6cZyrnloA")
+                    client = OpenAI(api_key="sk-qtvZYUkCq-UovQC1v3ZvTzMeRSHgs_8TLZOM9HO88-T3BlbkFJ2FFPiJVX_qfjtsaUKBH-GJQtz9uQsdjdGoz8jmq1cA")
 
                     with open(temp_audio_file.name, "rb") as media_file:
                         response = client.audio.transcriptions.create(
@@ -350,17 +412,21 @@ def get_flashcard_index(request):
 def update_question_status(request):
     if request.method == "POST":
         question_id = request.POST.get("question_id")
-        has_done = request.POST.get("question_has_done") == "true"
+        attempts_left = int(request.POST.get("attempts_left"))
 
         question = get_object_or_404(Question, id=question_id)
         user_progress, created = UserQuestionProgress.objects.get_or_create(
             user=request.user, assignment=question.assignment
         )
 
-        if has_done:
+        question_attempt, _ = UserQuestionAttempts.objects.get_or_create(
+            user=request.user, question=question
+        )
+        question_attempt.attempts_left = attempts_left
+        question_attempt.save()
+
+        if attempts_left == 0 or attempts_left == 1:
             user_progress.completed_questions.add(question)
-        else:
-            user_progress.completed_questions.remove(question)
 
         user_progress.update_progress()
 

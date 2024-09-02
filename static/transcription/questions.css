@@ -169,3 +169,12 @@ h1 {
   animation: pulse 1.5s infinite;
   background: rgba(255, 0, 0, 0.5);
 }
+
+.flashcard.locked {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.flashcard.locked .mic {
+  cursor: not-allowed;
+}

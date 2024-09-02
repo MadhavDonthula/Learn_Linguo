@@ -32,8 +32,8 @@ class Assignment(models.Model):
 class Question(models.Model):
     assignment = models.ForeignKey(Assignment, related_name='questions', on_delete=models.CASCADE)
     question_text = models.TextField(default="What is your name?")
-    answer = models.TextField(default="My name is Jean.")
-
+    expected_answer = models.TextField(default="My name is [NAME].")
+    
     def __str__(self):
         return self.question_text
 
@@ -168,3 +168,13 @@ class UserQuestionProgress(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s progress on {self.assignment.title}"
+class UserQuestionAttempts(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    attempts_left = models.IntegerField(default=2)
+
+    class Meta:
+        unique_together = ('user', 'question')
+
+    def __str__(self):
+        return f"{self.user.username}'s attempts for question {self.question.id}"
