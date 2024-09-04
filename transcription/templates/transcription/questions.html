@@ -24,25 +24,43 @@
         >
         (<span id="completion-percentage">0</span>%)
       </div>
-      <div class="flashcard-container">
-        {% for question in questions %}
-        <div
-          class="flashcard"
-          data-question-id="{{ question.id }}"
-          data-attempts-left="{{ question.attempts_left }}">
+      <div class="content-wrapper">
+        <div class="flashcard-container">
+          {% for question in questions %}
           <div
-            class="question-text"
-            onclick="speakQuestion('{{ question.question_text }}')">
-            <h4>{{ question.question_text }}</h4>
+            class="flashcard"
+            data-question-id="{{ question.id }}"
+            data-attempts-left="{{ question.attempts_left }}">
+            <div
+              class="question-text"
+              onclick="speakQuestion('{{ question.question_text }}')">
+              <h4>{{ question.question_text }}</h4>
+            </div>
+            <div class="attempts-left">
+              <span>{{ question.attempts_left }}</span>
+            </div>
+            <div class="mic" data-question-id="{{ question.id }}">
+              <div class="mic-icon"></div>
+              <div class="loading-animation"></div>
+            </div>
           </div>
-          <div class="attempts-left">
-            <span>{{ question.attempts_left }}</span>
-          </div>
-          <div class="mic" data-question-id="{{ question.id }}">
-            <div class="mic-icon"></div>
-          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
+        <div class="instructions">
+          <h2>Instructions</h2>
+          <ol>
+            <li>Click on the question text to hear it spoken aloud.</li>
+            <li>Click the microphone icon to start recording your answer.</li>
+            <li>Speak clearly and concisely.</li>
+            <li>Recording will automatically stop after 8 seconds.</li>
+            <li>
+              Your answer will be evaluated, and feedback will be provided.
+            </li>
+            <li>
+              You have limited attempts for each question, use them wisely!
+            </li>
+          </ol>
+        </div>
       </div>
     </div>
 
@@ -66,220 +84,252 @@
     </div>
 
     <script>
-          document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener("DOMContentLoaded", () => {
             const flashcards = document.querySelectorAll(".flashcard");
 
             flashcards.forEach((card) => {
-                const questionId = card.getAttribute("data-question-id");
-                const attemptsLeft = parseInt(card.getAttribute("data-attempts-left"));
+              const questionId = card.getAttribute("data-question-id");
+              const attemptsLeft = parseInt(card.getAttribute("data-attempts-left"));
 
-                updateCardState(card, attemptsLeft);
+              updateCardState(card, attemptsLeft);
             });
 
             updateProgress();
-        });
+          });
 
-        let isRecording = false;
-        let mediaRecorder;
-        let audioChunks = [];
+          let isRecording = false;
+          let mediaRecorder;
+          let audioChunks = [];
+          let isSubmitting = false;
 
-        const speakQuestion = (questionText) => {
-            if ("speechSynthesis" in window) {
-                const speech = new SpeechSynthesisUtterance(questionText);
-                speech.lang = "fr-FR";
-                speech.rate = 0.9;
-                speech.pitch = 1.2;
+      const speakQuestion = (questionText) => {
+        if ("speechSynthesis" in window) {
+          const speech = new SpeechSynthesisUtterance(questionText);
+          speech.lang = "fr-FR";
+          speech.rate = 0.9;
+          speech.pitch = 1.2;
 
-                const voices = window.speechSynthesis.getVoices();
-                const frenchVoice = voices.find((voice) =>
-                    voice.name.toLowerCase().includes("french")
-                );
-                if (frenchVoice) {
-                    speech.voice = frenchVoice;
-                }
-
-                window.speechSynthesis.speak(speech);
-            } else {
-                console.error("Text-to-speech is not supported.");
-            }
-        };
-
-        const toggleRecording = async (questionId, micDiv) => {
-            const flashcard = micDiv.closest(".flashcard");
-            const attemptsLeft = parseInt(flashcard.getAttribute("data-attempts-left"));
-
-            if (attemptsLeft > 0) {
-                if (!isRecording) {
-                    await startRecording(questionId, micDiv);
-                } else {
-                    stopRecording(questionId, micDiv);
-                }
-            }
-        };
-        let recordingTimer;
-
-
-        const startRecording = async (questionId, micDiv) => {
-          if (navigator.mediaDevices) {
-              try {
-                  const stream = await navigator.mediaDevices.getUserMedia({
-                      audio: true,
-                  });
-                  mediaRecorder = new MediaRecorder(stream);
-
-                  audioChunks = [];
-
-                  mediaRecorder.ondataavailable = (event) => {
-                      audioChunks.push(event.data);
-                  };
-
-                  mediaRecorder.onstop = () => {
-                      const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
-                      const reader = new FileReader();
-                      reader.readAsArrayBuffer(audioBlob);
-                      reader.onloadend = () => {
-                          const base64String = btoa(
-                              new Uint8Array(reader.result).reduce(
-                                  (data, byte) => data + String.fromCharCode(byte),
-                                  ""
-                              )
-                          );
-                          document.getElementById("audio_data").value = base64String;
-                          document.getElementById("question_id").value = questionId;
-                          submitAudioForm(questionId, micDiv);
-                      };
-                  };
-
-                  mediaRecorder.start();
-                  isRecording = true;
-                  micDiv.classList.add("recording");
-
-                  // Set a 10-second timer
-                  recordingTimer = setTimeout(() => {
-                      stopRecording(questionId, micDiv);
-                  }, 5000);
-
-              } catch (error) {
-                  console.error("Error accessing audio", error);
-              }
-          } else {
-              console.error(
-                  "MediaRecorder or getUserMedia is not supported by this browser."
-              );
+          const voices = window.speechSynthesis.getVoices();
+          const frenchVoice = voices.find((voice) =>
+            voice.name.toLowerCase().includes("french")
+          );
+          if (frenchVoice) {
+            speech.voice = frenchVoice;
           }
+
+          window.speechSynthesis.speak(speech);
+        } else {
+          console.error("Text-to-speech is not supported.");
+        }
+      };
+
+      const toggleRecording = async (questionId, micDiv) => {
+        if (isSubmitting) return;
+
+        const flashcard = micDiv.closest(".flashcard");
+        const attemptsLeft = parseInt(flashcard.getAttribute("data-attempts-left"));
+
+        if (attemptsLeft > 0) {
+          if (!isRecording) {
+            await startRecording(questionId, micDiv);
+          } else {
+            stopRecording(questionId, micDiv);
+          }
+        }
+      };
+
+      let recordingTimer;
+
+      const startRecording = async (questionId, micDiv) => {
+        if (navigator.mediaDevices) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+            });
+            mediaRecorder = new MediaRecorder(stream);
+
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+              audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+              const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+              const reader = new FileReader();
+              reader.readAsArrayBuffer(audioBlob);
+              reader.onloadend = () => {
+                const base64String = btoa(
+                  new Uint8Array(reader.result).reduce(
+                    (data, byte) => data + String.fromCharCode(byte),
+                    ""
+                  )
+                );
+                document.getElementById("audio_data").value = base64String;
+                document.getElementById("question_id").value = questionId;
+                submitAudioForm(questionId, micDiv);
+              };
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            micDiv.classList.add("recording");
+            micDiv.querySelector(".loading-animation").style.display = "none"; // Hide loading animation during recording
+
+            recordingTimer = setTimeout(() => {
+              stopRecording(questionId, micDiv);
+            }, 8000);
+
+          } catch (error) {
+            console.error("Error accessing audio", error);
+          }
+        } else {
+          console.error(
+            "MediaRecorder or getUserMedia is not supported by this browser."
+          );
+        }
       };
 
       const stopRecording = (questionId, micDiv) => {
-          if (isRecording && mediaRecorder) {
-              clearTimeout(recordingTimer);  // Clear the timer
-              mediaRecorder.stop();
-              isRecording = false;
-              micDiv.classList.remove("recording");
-          }
+        if (isRecording && mediaRecorder) {
+          clearTimeout(recordingTimer);
+          mediaRecorder.stop();
+          isRecording = false;
+          micDiv.classList.remove("recording");
+          micDiv.querySelector(".loading-animation").style.display = "block"; // Show loading animation after recording stops
+        }
       };
 
-        const submitAudioForm = (questionId, micDiv) => {
-            const formData = new FormData(document.getElementById("audioForm"));
-            fetch("{% url 'save_audio' %}", {
-                method: "POST",
-                body: formData,
-            })
-                .then((response) => response.json())
-                .then((data) => {
-                    showResultTab(data);
-                    updateAttemptsLeft(questionId, micDiv);
-                })
-                .catch((error) => console.error("Error:", error));
-        };
+      const submitAudioForm = (questionId, micDiv) => {
+        isSubmitting = true;
+        micDiv.querySelector(".loading-animation").style.opacity = "1";
+        disableAllMicButtons();
 
-        const showResultTab = (data) => {
-            document.getElementById("question-text").textContent = data.question;
-            document.getElementById("transcribed-text").textContent = data.transcribed_text;
-            document.getElementById("score").textContent = `${data.score}`;
-            document.getElementById("feedback").textContent = data.feedback;
+        const formData = new FormData(document.getElementById("audioForm"));
+        fetch("{% url 'save_audio' %}", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            showResultTab(data);
+            updateAttemptsLeft(questionId, micDiv);
+          })
+          .catch((error) => console.error("Error:", error))
+          .finally(() => {
+            isSubmitting = false;
+            micDiv.querySelector(".loading-animation").style.opacity = "0";
+            micDiv.querySelector(".loading-animation").style.display = "none";
+            enableAllMicButtons();
+          });
+      };
 
-            const resultTab = document.getElementById("result-tab");
-            resultTab.classList.remove("hidden");
-        };
+      const disableAllMicButtons = () => {
+        document.querySelectorAll(".mic").forEach(mic => {
+          mic.style.pointerEvents = "none";
+          mic.style.opacity = "0.5";
+        });
+      };
 
-        const closeResultTab = () => {
-            const resultTab = document.getElementById("result-tab");
-            resultTab.classList.add("hidden");
-        };
+      const enableAllMicButtons = () => {
+        document.querySelectorAll(".mic").forEach(mic => {
+          const flashcard = mic.closest(".flashcard");
+          const attemptsLeft = parseInt(flashcard.getAttribute("data-attempts-left"));
+          if (attemptsLeft > 0) {
+            mic.style.pointerEvents = "auto";
+            mic.style.opacity = "1";
+          }
+        });
+      };
 
-        const updateAttemptsLeft = (questionId, micDiv) => {
-            const flashcard = micDiv.closest(".flashcard");
-            let attemptsLeft = parseInt(flashcard.getAttribute("data-attempts-left")) - 1;
-            attemptsLeft = Math.max(attemptsLeft, 0);  // Ensure attempts don't go below 0
+      const showResultTab = (data) => {
+        document.getElementById("question-text").textContent = data.question;
+        document.getElementById("transcribed-text").textContent = data.transcribed_text;
+        document.getElementById("score").textContent = `${data.score}`;
+        document.getElementById("feedback").textContent = data.feedback;
 
-            flashcard.setAttribute("data-attempts-left", attemptsLeft);
-            flashcard.querySelector(".attempts-left span").textContent = attemptsLeft;
+        const resultTab = document.getElementById("result-tab");
+        resultTab.classList.remove("hidden");
+      };
 
-            updateCardState(flashcard, attemptsLeft);
+      const closeResultTab = () => {
+        const resultTab = document.getElementById("result-tab");
+        resultTab.classList.add("hidden");
+      };
 
-            const formData = new FormData();
-            formData.append("question_id", questionId);
-            formData.append("attempts_left", attemptsLeft);
-            formData.append("csrfmiddlewaretoken", "{{ csrf_token }}");
+      const updateAttemptsLeft = (questionId, micDiv) => {
+        const flashcard = micDiv.closest(".flashcard");
+        let attemptsLeft = parseInt(flashcard.getAttribute("data-attempts-left")) - 1;
+        attemptsLeft = Math.max(attemptsLeft, 0);
 
-            fetch("{% url 'update_question_status' %}", {
-                method: "POST",
-                body: formData,
-            })
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.status === "success") {
-                        updateProgress();
-                    }
-                })
-                .catch((error) =>
-                    console.error("Error updating question status:", error)
-                );
-        };
+        flashcard.setAttribute("data-attempts-left", attemptsLeft);
+        flashcard.querySelector(".attempts-left span").textContent = attemptsLeft;
 
-        const updateCardState = (card, attemptsLeft) => {
-            const micDiv = card.querySelector(".mic");
-            micDiv.removeEventListener("click", micClickHandler);
+        updateCardState(flashcard, attemptsLeft);
 
-            if (attemptsLeft === 0) {
-                card.classList.add("locked");
-                stopRecording(card.getAttribute("data-question-id"), micDiv);
-            } else {
-                card.classList.remove("locked");
-                micDiv.addEventListener("click", micClickHandler);
+        const formData = new FormData();
+        formData.append("question_id", questionId);
+        formData.append("attempts_left", attemptsLeft);
+        formData.append("csrfmiddlewaretoken", "{{ csrf_token }}");
+
+        fetch("{% url 'update_question_status' %}", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.status === "success") {
+              updateProgress();
             }
-        };
+          })
+          .catch((error) =>
+            console.error("Error updating question status:", error)
+          );
+      };
 
-        const micClickHandler = function() {
-            const card = this.closest(".flashcard");
-            const questionId = card.getAttribute("data-question-id");
-            toggleRecording(questionId, this);
-        };
+      const updateCardState = (card, attemptsLeft) => {
+        const micDiv = card.querySelector(".mic");
+        micDiv.removeEventListener("click", micClickHandler);
 
-        function updateProgress() {
-            const completedQuestions = document.querySelectorAll('.flashcard[data-attempts-left="0"]').length;
-            const totalQuestions = {{ questions|length }};
-            const percentage = Math.round((completedQuestions / totalQuestions) * 100);
-
-            document.getElementById('completed-questions').textContent = completedQuestions;
-            document.getElementById('completion-percentage').textContent = percentage;
-
-            fetch("{% url 'update_question_progress' %}", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "X-CSRFToken": "{{ csrf_token }}"
-              },
-              body: JSON.stringify({
-                assignment_id: "{{ assignment.id }}",
-                completed_questions: completedQuestions,
-                total_questions: totalQuestions
-              })
-            })
-            .then(response => response.json())
-            .then(data => console.log('Progress updated:', data))
-            .catch(error => console.error('Error updating progress:', error));
+        if (attemptsLeft === 0) {
+          card.classList.add("locked");
+          stopRecording(card.getAttribute("data-question-id"), micDiv);
+        } else {
+          card.classList.remove("locked");
+          micDiv.addEventListener("click", micClickHandler);
         }
+      };
+
+      const micClickHandler = function() {
+        const card = this.closest(".flashcard");
+        const questionId = card.getAttribute("data-question-id");
+        toggleRecording(questionId, this);
+      };
+
+      function updateProgress() {
+        const completedQuestions = document.querySelectorAll('.flashcard[data-attempts-left="0"]').length;
+        const totalQuestions = {{ questions|length }};
+        const percentage = Math.round((completedQuestions / totalQuestions) * 100);
+
+        document.getElementById('completed-questions').textContent = completedQuestions;
+        document.getElementById('completion-percentage').textContent = percentage;
+
+        fetch("{% url 'update_question_progress' %}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+          },
+          body: JSON.stringify({
+            assignment_id: "{{ assignment.id }}",
+            completed_questions: completedQuestions,
+            total_questions: totalQuestions
+          })
+        })
+        .then(response => response.json())
+        .then(data => console.log('Progress updated:', data))
+        .catch(error => console.error('Error updating progress:', error));
+      }
     </script>
   </body>
 </html>

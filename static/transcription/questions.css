@@ -5,7 +5,8 @@ body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1e3a8a;
+  background: radial-gradient(circle, #1e3a8a 0%, #0f172a 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -13,9 +14,14 @@ body {
 }
 
 .container {
-  width: 90%;
-  max-width: 1200px;
+  width: 95%;
+  max-width: 1400px;
   margin: 2rem auto;
+  padding: 2rem;
+  background-color: rgba(30, 58, 138, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+  backdrop-filter: blur(10px);
 }
 
 h1 {
@@ -36,10 +42,44 @@ h1 {
   backdrop-filter: blur(10px);
 }
 
-.flashcard-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+.content-wrapper {
+  display: flex;
   gap: 2rem;
+}
+
+.flashcard-container {
+  flex: 3;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.instructions {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  align-self: flex-start;
+  position: sticky;
+  top: 2rem;
+}
+
+.instructions h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+
+.instructions ol {
+  padding-left: 1.5rem;
+}
+
+.instructions li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
 }
 
 .flashcard {
@@ -94,6 +134,33 @@ h1 {
   background-repeat: no-repeat;
 }
 
+.loading-animation {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 2px solid transparent;
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.mic.recording .loading-animation {
+  opacity: 1;
+}
+
 .text-to-speech {
   position: absolute;
   top: 10px;
@@ -130,7 +197,7 @@ h1 {
   left: 50%;
   transform: translate(-50%, -50%);
   background: rgba(255, 255, 255, 0.9);
-  color: #333;
+  color: #0f172a;
   padding: 2rem;
   border-radius: 15px;
   box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
@@ -150,7 +217,7 @@ h1 {
   right: 10px;
   cursor: pointer;
   font-size: 1.5rem;
-  color: #333;
+  color: #0f172a;
 }
 
 @keyframes pulse {
@@ -177,4 +244,36 @@ h1 {
 
 .flashcard.locked .mic {
   cursor: not-allowed;
+}
+
+.button {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 10px 20px;
+  background-color: #3b82f6;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  font-size: 18px;
+  transition: background-color 0.3s ease;
+}
+
+.button:hover {
+  background-color: #2563eb;
+}
+
+@media (max-width: 1200px) {
+  .content-wrapper {
+    flex-direction: column;
+  }
+
+  .instructions {
+    order: -1;
+    margin-bottom: 2rem;
+    position: static;
+  }
+
+  .flashcard-container {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
 }

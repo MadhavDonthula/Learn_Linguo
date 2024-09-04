@@ -4,15 +4,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flashcards</title>
+    <title>French Flashcards</title>
     <link rel="stylesheet" href="{% static 'transcription/flashcards.css' %}" />
   </head>
   <body>
+    <div class="backbuttonbox">
+      <a href="{% url 'home' %}" class="back-button">Back to Dashboard</a>
+    </div>
     <div class="container">
-      <h1>French Flashcards</h1>
-      <div class="flashcard" id="flashcard">
-        <div class="flashcard-inner">
-          <div class="flashcard-front">
+      <div class="flashcard-container">
+        <h1>{{flashcard_set.name}}</h1>
+        <div class="flashcard" id="flashcard">
+          <div class="flashcard-inner">
             <div class="word" id="french-word"></div>
             <div class="translation" id="english-translation"></div>
             <div class="icon mic" id="mic">
@@ -32,44 +35,54 @@
               <div class="recording-indicator"></div>
             </div>
           </div>
-          <div class="flashcard-back">
-            <div class="word" id="english-translation-back"></div>
+        </div>
+        <div class="checkmark" id="checkmark">✅</div>
+        <div class="wrong" id="wrong">❌</div>
+        <div class="transcribed-text" id="transcribed-text"></div>
+        <div class="score" id="score"></div>
+        <div class="missing-words" id="missing-words"></div>
+        <div class="loading" id="loading">Loading...</div>
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBar"></div>
+          <div id="completionText"></div>
+        </div>
+        <div class="navigation">
+          <div class="nav-icon" id="prevArrow">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </div>
+          <div class="nav-icon" id="nextArrow">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
           </div>
         </div>
       </div>
-      <div class="checkmark" id="checkmark">✅</div>
-      <div class="wrong" id="wrong">❌</div>
-      <div class="transcribed-text" id="transcribed-text"></div>
-      <div class="score" id="score"></div>
-      <div class="missing-words" id="missing-words"></div>
-      <div class="loading" id="loading">Loading...</div>
-      <div class="progress-container">
-        <div class="progress-bar" id="progressBar"></div>
-        <div id="completionText"></div>
-      </div>
-      <div class="navigation">
-        <div class="nav-icon" id="prevArrow">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
-        </div>
-        <div class="nav-icon" id="nextArrow">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"></polyline>
-          </svg>
-        </div>
+      <div class="instructions">
+        <h2>How to Use</h2>
+        <ol>
+          <li>Click on the flashcard to hear the French word pronounced.</li>
+          <li>
+            Click the microphone icon to start recording your pronunciation.
+          </li>
+          <li>Speak the French word clearly.</li>
+          <li>Click the microphone icon again to stop recording and submit.</li>
+          <li>The app will check your pronunciation and give feedback.</li>
+          <li>Use the arrows to navigate between flashcards.</li>
+        </ol>
       </div>
     </div>
 
@@ -244,7 +257,10 @@
 
         flashcard.addEventListener("click", () => {
             if (!isRecording) {
-                flashcard.classList.toggle("flipped");
+                const currentFlashcard = flashcards[currentFlashcardIndex];
+                const utterance = new SpeechSynthesisUtterance(currentFlashcard.french_word);
+                utterance.lang = 'fr-FR';
+                speechSynthesis.speak(utterance);
             }
         });
 
@@ -275,24 +291,34 @@
         }
 
         function showCheckmark() {
-            checkmark.classList.add("show");
-            nextArrow.classList.add("show");
-            transcribedText.textContent = "";
-            transcribedText.style.display = "none";
-            scoreElement.textContent = "";
-            missingWordsElement.textContent = "";
-            resetMic();
-        }
+          checkmark.classList.add("show");
+          wrong.classList.remove("show");
+          transcribedText.textContent = "";
+          transcribedText.style.display = "none";
+          scoreElement.textContent = "";
+          missingWordsElement.textContent = "";
+          resetMic();
+
+          // Wait for a short moment to show the checkmark, then move to the next card
+          setTimeout(() => {
+              if (currentFlashcardIndex < flashcards.length - 1) {
+                  currentFlashcardIndex++;
+                  updateFlashcard();
+              } else {
+                  showCongratulationsPopup();
+              }
+          }, 1000); // Wait for 1 second before moving to the next card
+      }
 
         function showWrong(transcribed) {
-          wrong.classList.add("show");
-          transcribedText.textContent = `You said: ${transcribed}`;
-          transcribedText.style.display = "block";
-          if (attemptCount >= maxAttempts) {
-              nextArrow.classList.add("show");
-              resetMic();
-          }
-      }
+            wrong.classList.add("show");
+            transcribedText.textContent = `You said: ${transcribed}`;
+            transcribedText.style.display = "block";
+            if (attemptCount >= maxAttempts) {
+                nextArrow.classList.add("show");
+                resetMic();
+            }
+        }
 
         function resetMic() {
             micDiv.classList.remove("recording");
@@ -316,7 +342,6 @@
             transcribedText.style.display = "none";
             scoreElement.textContent = "";
             missingWordsElement.textContent = "";
-            flashcard.classList.remove("flipped");
             micDiv.style.display = "block";
         }
 

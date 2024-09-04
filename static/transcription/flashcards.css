@@ -1,9 +1,10 @@
 :root {
-  --background-color: #1a4b77;
-  --card-color: #e6f3ff;
+  --background-color: #e6f2ff;
+  --card-color: #ffffff;
   --text-color: #333;
   --icon-color: #1a4b77;
-  --nav-icon-color: #ffffff;
+  --nav-icon-color: #1a4b77;
+  --instruction-bg-color: #f8f9fa;
 }
 
 body {
@@ -19,13 +20,47 @@ body {
 }
 
 .container {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
   width: 90%;
-  max-width: 600px;
+  max-width: 1200px;
+  margin: 2rem auto;
+}
+
+.flashcard-container {
+  width: 60%;
+}
+
+.instructions {
+  margin-left: 3rem;
+  width: 35%;
+  background-color: var(--instruction-bg-color);
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  align-self: flex-start;
+  position: sticky;
+  top: 2rem;
+}
+
+.instructions h2 {
+  color: var(--icon-color);
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.instructions ol {
+  padding-left: 1.5rem;
+  margin-bottom: 0;
+}
+
+.instructions li {
+  margin-bottom: 0.5rem;
 }
 
 h1 {
-  color: var(--nav-icon-color);
+  color: var(--icon-color);
   font-size: 2.5rem;
   margin-bottom: 2rem;
   font-weight: 600;
@@ -41,7 +76,6 @@ h1 {
   overflow: hidden;
   aspect-ratio: 3 / 2;
   cursor: pointer;
-  perspective: 1000px;
 }
 
 .flashcard-inner {
@@ -49,31 +83,12 @@ h1 {
   width: 100%;
   height: 100%;
   text-align: center;
-  transition: transform 0.6s;
-  transform-style: preserve-3d;
-}
-
-.flashcard.flipped .flashcard-inner {
-  transform: rotateY(180deg);
-}
-
-.flashcard-front,
-.flashcard-back {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 2rem;
   box-sizing: border-box;
-}
-
-.flashcard-back {
-  transform: rotateY(180deg);
 }
 
 .word {
@@ -149,11 +164,16 @@ h1 {
   transition: transform 0.3s ease;
   width: 32px;
   height: 32px;
+  color: var(--nav-icon-color);
+}
+
+.nav-icon:hover {
+  transform: scale(1.1);
 }
 
 .progress-container {
   width: 100%;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: rgba(26, 75, 119, 0.2);
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 1rem;
@@ -174,7 +194,7 @@ h1 {
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 0.9rem;
-  color: var(--text-color);
+  color: white;
   font-weight: bold;
   z-index: 1;
 }
@@ -184,7 +204,7 @@ h1 {
   display: none;
   position: absolute;
   top: 10px;
-  left: 10px;
+  right: 10px;
   font-size: 30px;
   z-index: 10;
 }
@@ -217,6 +237,36 @@ h1 {
   max-width: 80%;
   z-index: 10;
 }
+.backbuttonbox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #1a4b77;
+  padding: 10px 0;
+  z-index: 1000;
+}
+
+.back-button {
+  display: inline-block;
+  margin-left: 20px;
+  background-color: var(--button-color);
+  color: white;
+  padding: 10px 20px;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: var(--button-hover-color);
+}
+
+/* Adjust container margin to account for the fixed header */
+.container {
+  margin-top: 80px;
+}
 
 .loading {
   display: none;
@@ -225,7 +275,7 @@ h1 {
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 20px;
-  color: var(--nav-icon-color);
+  color: white;
   background-color: rgba(0, 0, 0, 0.7);
   padding: 10px 20px;
   border-radius: 5px;
@@ -249,21 +299,38 @@ h1 {
 
 .congratulations-popup h1 {
   margin-bottom: 20px;
-  color: black;
+  color: var(--icon-color);
 }
 
 .restart-button {
-  background-color: #28a745;
+  background-color: var(--icon-color);
   color: white;
   padding: 10px 20px;
   border: none;
   border-radius: 5px;
   cursor: pointer;
   font-size: 16px;
+  transition: background-color 0.3s ease;
 }
 
 .restart-button:hover {
-  background-color: #218838;
+  background-color: #15395d;
+}
+
+@media (max-width: 900px) {
+  .container {
+    flex-direction: column;
+  }
+
+  .flashcard-container,
+  .instructions {
+    width: 100%;
+  }
+
+  .instructions {
+    margin-top: 2rem;
+    position: static;
+  }
 }
 
 @media (max-width: 600px) {
@@ -277,5 +344,20 @@ h1 {
 
   .translation {
     font-size: 1.2rem;
+  }
+}
+@media (max-width: 600px) {
+  .backbuttonbox {
+    padding: 5px 0;
+  }
+
+  .back-button {
+    margin-left: 10px;
+    padding: 8px 15px;
+    font-size: 14px;
+  }
+
+  .container {
+    margin-top: 60px;
   }
 }

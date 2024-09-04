@@ -166,26 +166,24 @@ def get_ai_evaluation(client, question, student_answer):
     prompt = f"""As a French teacher, evaluate:
     Question: {question}
     Answer: {student_answer}
-
-    Grade 0-100. Prioritize answering the specific question, but be lenient on grammar for beginners.
+Quels sont vos projets pour l'avenir ?
+    First, check if an answer was provided:
+    If no answer or only whitespace: Score 0
+    Otherwise, evaluate as follows:
+    Prioritize answering the specific question, but be lenient on grammar for beginners. 
 
     Scoring guide:
-    0: No answer provided or completely unrelated
-    1-50: Unrelated or doesn't address question
-    51-70: Partially addresses question with errors
-    71-85: Addresses question with some errors
-    86-100: Correctly addresses question, minor errors allowed
+    1-50: Off-topic or barely addresses question, major errors
+    51-75: Addresses question with some errors
+    76-100: Correctly addresses question, minor errors allowed
 
-    If the answer is empty or just whitespace, score it 0 and provide feedback encouraging the student to attempt an answer.
-
-    Provide brief feedback in English with a tip for improvement.
+    Provide what the user did wrong in English. Do not correct something that is right even though it could be written better.
 
     Format:
-    Score: [score]
-    Feedback: [Brief feedback with improvement tip]"""
-
+    Score: 
+    Feedback: """
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo-0125",
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a French evaluation assistant for beginners."},
             {"role": "user", "content": prompt}
