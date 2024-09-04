@@ -166,8 +166,7 @@ def get_ai_evaluation(client, question, student_answer):
     prompt = f"""As a French teacher, evaluate:
     Question: {question}
     Answer: {student_answer}
-Quels sont vos projets pour l'avenir ?
-    First, check if an answer was provided:
+            First, check if an answer was provided:
     If no answer or only whitespace: Score 0
     Otherwise, evaluate as follows:
     Prioritize answering the specific question, but be lenient on grammar for beginners. 
