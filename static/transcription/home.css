@@ -79,10 +79,18 @@ body {
 
 .input-container {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   margin-top: 4rem;
   position: relative;
   z-index: 1;
+}
+
+.input-header {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #2c3e50;
 }
 
 .input-box {

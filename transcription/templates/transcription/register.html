@@ -74,6 +74,22 @@
         box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11),
           0 1px 3px rgba(0, 0, 0, 0.08);
       }
+      .btn-admin {
+        background-color: #10b981;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 1rem;
+      }
+      .btn-admin:hover {
+        background-color: #059669;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11),
+          0 1px 3px rgba(0, 0, 0, 0.08);
+      }
     </style>
   </head>
   <body class="flex items-center justify-center min-h-screen">
@@ -119,6 +135,7 @@
               >Login</a
             >
           </p>
+          <a href="{% url 'admin:index' %}" class="btn-admin"> Admin Login </a>
         </div>
       </div>
     </div>

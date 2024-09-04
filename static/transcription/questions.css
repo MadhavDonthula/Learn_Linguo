@@ -133,6 +133,36 @@ h1 {
   background-size: contain;
   background-repeat: no-repeat;
 }
+.backbuttonbox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #1a4b77;
+  padding: 10px 0;
+  z-index: 1000;
+}
+
+.back-button {
+  display: inline-block;
+  margin-left: 20px;
+  background-color: var(--button-color);
+  color: white;
+  padding: 10px 20px;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: bold;
+  transition: background-color 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: var(--button-hover-color);
+}
+
+/* Adjust container margin to account for the fixed header */
+.container {
+  margin-top: 80px;
+}
 
 .loading-animation {
   position: absolute;
@@ -275,5 +305,21 @@ h1 {
 
   .flashcard-container {
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .backbuttonbox {
+    padding: 5px 0;
+  }
+
+  .back-button {
+    margin-left: 10px;
+    padding: 8px 15px;
+    font-size: 14px;
+  }
+
+  .container {
+    margin-top: 60px;
   }
 }
