@@ -1,0 +1,57 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Page - Learn Linguo</title>
+    <link rel="stylesheet" href="{% static 'transcription/team_page.css' %}">
+</head>
+<body>
+    <div class="background">
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+    </div>
+
+    <div class="container">
+        <h1>Welcome to Your Team!</h1>
+        <div class="team-info">
+            <h2>Team: <span class="team-name">{{ team_name }}</span></h2>
+            <div class="team-members">
+                <h3>Your Teammates:</h3>
+                <ul>
+                    {% for member in team_members %}
+                    <li>{{ member }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="game-info">
+            <h3>Flashcard Set: {{ game.flashcard_set.name }}</h3>
+            <p>Get ready to start the game with your team!</p>
+        </div>
+    </div>
+
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+    <script>
+        const pusher = new Pusher('5f98d06c363a1469ecde', {
+            cluster: 'us3'
+        });
+
+        const channel = pusher.subscribe('game-{{ game.id }}');
+
+        channel.bind('game-started', function(data) {
+            console.log('Game started:', data);
+            window.location.href = "{% url 'game_selection' game.id %}";
+        });
+
+        channel.bind('game-ended', function(data) {
+            console.log('Game ended:', data);
+            window.location.href = "{% url 'game_results' game.id %}";
+        });
+    </script>
+</body>
+</html>

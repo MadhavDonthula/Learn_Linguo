@@ -1,0 +1,24 @@
+{% extends "admin/base_site.html" %} {% load i18n admin_urls %} 
+{% block content %}
+<div id="content-main">
+  <form method="post">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      <h2>Create Game for {{ class_code.code }}</h2>
+      <div class="form-row">
+        <label for="flashcard_set">Choose a Flashcard Set:</label>
+        <select name="flashcard_set" id="flashcard_set" required>
+          {% for flashcard_set in flashcard_sets %}
+          <option value="{{ flashcard_set.id }}">
+            {{ flashcard_set.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Create Game" class="default" name="_save" />
+    </div>
+  </form>
+</div>
+{% endblock %}

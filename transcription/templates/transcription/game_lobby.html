@@ -1,0 +1,200 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Lobby - Learn Linguo</title>
+    <link rel="stylesheet" href="{% static 'transcription/game_lobby.css' %}">
+</head>
+<body>
+    <div class="background">
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+        <div class="bubble"></div>
+    </div>
+
+    <div class="container">
+        <h1>Game Lobby</h1>
+        <h2>Flashcard Set: {{ game.flashcard_set.name }}</h2>
+
+        <div class="players-container">
+            <h3>Players Joined</h3>
+            <ul id="players-list">
+              {% for username in joined_players %}
+              <li>{{ username }}</li>
+              {% endfor %}
+            </ul>
+        </div>
+
+        <div id="team-info" style="display: none;">
+            <h3>Your Team: <span id="team-name"></span></h3>
+            <ul id="team-members"></ul>
+        </div>
+
+        {% if request.user.is_staff %}
+        <button id="start-game" class="action-button">Start Game</button>
+        <button id="end-game" class="action-button" style="display: none;">End Game</button>
+        {% endif %}
+
+        <div id="error-message" style="display: none; color: red; margin-top: 10px;"></div>
+    </div>
+    <style>
+      @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+      }
+      .loading::after {
+          content: '';
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          margin-left: 10px;
+          border: 3px solid rgba(255,255,255,.3);
+          border-radius: 50%;
+          border-top-color: #fff;
+          animation: spin 1s ease-in-out infinite;
+      }
+    </style>
+  
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+    <script>
+        const currentUser = '{{ request.user.username }}';
+        const isStaff = {{ request.user.is_staff|yesno:"true,false" }};
+        const gameId = {{ game.id }};
+        let gameStartTime = null;
+        let gameStarted = {{ game.is_active|yesno:"true,false" }};
+    
+        const pusher = new Pusher('5f98d06c363a1469ecde', {
+            cluster: 'us3'
+        });
+    
+        const channel = pusher.subscribe('game-{{ game.id }}');
+    
+        function updatePlayersList(players) {
+            const playersListElement = document.getElementById('players-list');
+            playersListElement.innerHTML = '';
+            players.forEach(player => {
+                const playerElement = document.createElement('li');
+                playerElement.textContent = player;
+                playersListElement.appendChild(playerElement);
+            });
+        }
+    
+        channel.bind('player-joined', function(data) {
+            if (gameStarted) {
+                document.getElementById('error-message').textContent = 'Game already started';
+                document.getElementById('error-message').style.display = 'block';
+            } else {
+                updatePlayersList(data.players);
+            }
+        });
+    
+        channel.bind('game-started', function(data) {
+            console.log('Game started:', data);
+            gameStarted = true;
+            gameStartTime = new Date();
+            if (!isStaff) {
+                // Instead of immediately redirecting, fetch the team assignment
+                fetch(`/get_team_assignment/${gameId}/`)
+                    .then(response => response.json())
+                    .then(teamData => {
+                        if (teamData.team_id) {
+                            window.location.href = `/team_page/${gameId}/${teamData.team_id}/`;
+                        } else {
+                            console.error('Team assignment not found');
+                            alert('Error: Team assignment not found. Please refresh the page.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching team assignment:', error);
+                        alert('Error fetching team assignment. Please refresh the page.');
+                    });
+            } else {
+                document.getElementById('start-game').style.display = 'none';
+                document.getElementById('end-game').style.display = 'block';
+            }
+        });
+    
+        channel.bind('game-ended', function(data) {
+            console.log('Game ended:', data);
+            window.location.href = `/game_results/${gameId}/`;
+        });
+    
+        if (document.getElementById('start-game')) {
+            const startButton = document.getElementById('start-game');
+            startButton.addEventListener('click', function() {
+                if (!gameStarted) {
+                    this.classList.add('loading');
+                    this.disabled = true;
+        
+                    fetch(`/start_game/${gameId}/`, { 
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Start game response:', data);
+                        if (data.status !== 'success') {
+                            this.classList.remove('loading');
+                            this.disabled = false;
+                            alert(`Failed to start the game: ${data.message}`);
+                            console.error('Error starting game:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error starting game:', error);
+                        this.classList.remove('loading');
+                        this.disabled = false;
+                        alert('An error occurred while starting the game. Please check the console for details and try again.');
+                    });
+                }
+            });
+        }
+    
+        if (document.getElementById('end-game')) {
+            document.getElementById('end-game').addEventListener('click', function() {
+                fetch(`/end_game/${gameId}/`, { 
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        alert(`Failed to end the game: ${data.message}`);
+                        console.error('Error ending game:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error ending game:', error);
+                    alert('An error occurred while ending the game. Please check the console for details and try again.');
+                });
+            });
+        }
+
+        // Check game state every second
+        setInterval(function() {
+            if (gameStarted && gameStartTime) {
+                const currentTime = new Date();
+                const elapsedTime = (currentTime - gameStartTime) / 1000; // in seconds
+                if (elapsedTime >= 300) { // 5 minutes
+                    gameStarted = false;
+                    gameStartTime = null;
+                    if (isStaff) {
+                        document.getElementById('start-game').style.display = 'block';
+                        document.getElementById('end-game').style.display = 'none';
+                    }
+                }
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
