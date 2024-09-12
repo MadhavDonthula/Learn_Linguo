@@ -40,6 +40,8 @@ def loginPage(request):
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            if user.is_staff or user.is_superuser:  # Check if user is admin
+                return redirect("admin:index")  # Redirect to admin page
             return redirect("home")
         else:
             messages.info(request, "Username or password is incorrect")
@@ -53,6 +55,10 @@ def logoutUser(request):
 
 @login_required(login_url="login")
 def home(request):
+    # Check if user is admin and redirect if so
+    if request.user.is_staff or request.user.is_superuser:
+        return redirect("admin:index")
+
     if hasattr(request.user, 'class_enrollments') and request.user.class_enrollments.exists():
         class_code = request.user.class_enrollments.last().class_code
         assignments = class_code.assignments.all()
@@ -72,7 +78,6 @@ def home(request):
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
     
     return render(request, 'transcription/home.html')
-
 
 @login_required(login_url="login")
 def index(request, assignment_id=None):
@@ -111,7 +116,6 @@ def record_audio(request, assignment_id):
     return render(request, "transcription/questions.html", context)
 
 from django.http import JsonResponse
-
 def save_audio(request):
     if request.method == "POST":
         audio_data = request.POST.get('audio_data')
@@ -128,22 +132,26 @@ def save_audio(request):
                 temp_audio_file.flush()
 
                 client = OpenAI(api_key="sk-qtvZYUkCq-UovQC1v3ZvTzMeRSHgs_8TLZOM9HO88-T3BlbkFJ2FFPiJVX_qfjtsaUKBH-GJQtz9uQsdjdGoz8jmq1cA")
+
+                # Retrieve the assignment and question
+                assignment = get_object_or_404(Assignment, id=assignment_id)
+                selected_question = get_object_or_404(Question, id=question_id, assignment=assignment)
+
+                # Use the assignment's language for transcription
+                transcription_language = assignment.language
+
                 with open(temp_audio_file.name, "rb") as wav_file:
                     transcription = client.audio.transcriptions.create(
                         model="whisper-1",
                         file=wav_file,
                         response_format="text",
-                        language="fr",
+                        language=transcription_language,
                     )
 
             transcribed_text = transcription.strip()
-            
-            # Retrieve the assignment and question
-            assignment = get_object_or_404(Assignment, id=assignment_id)
-            selected_question = get_object_or_404(Question, id=question_id, assignment=assignment)
 
             # Perform AI evaluation
-            evaluation = get_ai_evaluation(client, selected_question.question_text, transcribed_text)
+            evaluation = get_ai_evaluation(client, selected_question.question_text, transcribed_text, assignment.language)
 
             # Parse the evaluation response
             evaluation_lines = evaluation.split('\n')
@@ -162,8 +170,10 @@ def save_audio(request):
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
-def get_ai_evaluation(client, question, student_answer):
-    prompt = f"""As a French teacher, evaluate:
+def get_ai_evaluation(client, question, student_answer, language):
+    language_name = "French" if language == "fr" else "Spanish"
+    
+    prompt = f"""As a {language_name} teacher, evaluate:
     Question: {question}
     Answer: {student_answer}
             First, check if an answer was provided:
@@ -181,10 +191,11 @@ def get_ai_evaluation(client, question, student_answer):
     Format:
     Score: 
     Feedback: """
+    
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "You are a French evaluation assistant for beginners."},
+            {"role": "system", "content": f"You are a {language_name} evaluation assistant for beginners."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=200
@@ -310,17 +321,18 @@ def check_pronunciation(request):
 
                     client = OpenAI(api_key="sk-qtvZYUkCq-UovQC1v3ZvTzMeRSHgs_8TLZOM9HO88-T3BlbkFJ2FFPiJVX_qfjtsaUKBH-GJQtz9uQsdjdGoz8jmq1cA")
 
+                    flashcard = get_object_or_404(Flashcard, id=flashcard_id)
+                    language = flashcard.flashcard_set.language
+
                     with open(temp_audio_file.name, "rb") as media_file:
                         response = client.audio.transcriptions.create(
                             model="whisper-1",
-                            language="fr",
+                            language=language,
                             file=media_file,
                             response_format="text"
                         )
 
                 transcribed_text = response.strip()
-
-                flashcard = Flashcard.objects.get(id=flashcard_id)
                 correct_text = flashcard.french_word.strip()
 
                 missing_words, score = compare_texts(transcribed_text, correct_text)

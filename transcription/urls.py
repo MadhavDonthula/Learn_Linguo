@@ -23,5 +23,6 @@ urlpatterns = [
         path('check-class-code/<str:code>/', views.check_class_code, name='check_class_code'),
 
 
+
 ]
 

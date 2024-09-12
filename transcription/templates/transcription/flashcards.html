@@ -133,6 +133,11 @@
         const completionIndicator = document.getElementById("completion-indicator");
         const congratulationsPopup = document.getElementById("congratulations-popup");
         const restartButton = document.getElementById("restart-button");
+        const freeFlow = {{ flashcard_set.free_flow|yesno:"true,false" }}; // Get the free_flow value from the server
+        const recordingTimeLimit = 4000; // 4 seconds in milliseconds
+        let recordingTimeout;
+
+
 
         const flashcards = [
             {% for flashcard in flashcards %}
@@ -151,12 +156,21 @@
             document.getElementById('flashcard_id').value = currentFlashcard.id;
             document.getElementById('flashcard_set_id').value = "{{ flashcard_set.id }}";
             resetUI();
-
+        
             saveFlashcardIndex();
             updateCompletionPercentage();
-
-            nextArrow.classList.add("show");
+        
+            // Only show the next arrow if it's free flow mode
+            if (freeFlow) {
+                nextArrow.classList.add("show");
+            } else {
+                nextArrow.classList.remove("show");
+            }
+            
+            // Reset attempt count for the new flashcard
+            attemptCount = 0;
         }
+        
 
         function saveFlashcardIndex() {
             fetch("{% url 'save_flashcard_index' %}", {
@@ -186,7 +200,6 @@
                 })
                 .catch(error => console.error('Error:', error));
         }
-
         micDiv.addEventListener("click", async (event) => {
             event.stopPropagation();
             if (!isRecording) {
@@ -210,7 +223,7 @@
                     mediaRecorder.start();
                     isRecording = true;
                     micDiv.classList.add("recording");
-
+        
                     // Set up audio analysis
                     audioContext = new (window.AudioContext || window.webkitAudioContext)();
                     analyser = audioContext.createAnalyser();
@@ -218,27 +231,39 @@
                     microphone.connect(analyser);
                     analyser.fftSize = 256;
                     animateRecordingIndicator();
+        
+                    // Set up recording time limit
+                    recordingTimeout = setTimeout(() => {
+                        if (isRecording) {
+                            stopRecording();
+                        }
+                    }, recordingTimeLimit);
+        
                 } catch (error) {
                     console.error("Error accessing audio", error);
                 }
             } else {
-                if (mediaRecorder) {
-                    mediaRecorder.stop();
-                    isRecording = false;
-                    micDiv.classList.remove("recording");
-                    attemptCount++;
-                    loading.style.display = "block";
-
-                    // Stop audio analysis
-                    if (audioContext) {
-                        audioContext.close();
-                    }
-                    if (animationId) {
-                        cancelAnimationFrame(animationId);
-                    }
-                }
+                stopRecording();
             }
         });
+        
+        function stopRecording() {
+            clearTimeout(recordingTimeout);
+            if (mediaRecorder) {
+                mediaRecorder.stop();
+                isRecording = false;
+                micDiv.classList.remove("recording");
+                loading.style.display = "block";
+        
+                // Stop audio analysis
+                if (audioContext) {
+                    audioContext.close();
+                }
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+            }
+        }
 
         function animateRecordingIndicator() {
             if (!isRecording) return;
@@ -291,34 +316,42 @@
         }
 
         function showCheckmark() {
-          checkmark.classList.add("show");
-          wrong.classList.remove("show");
-          transcribedText.textContent = "";
-          transcribedText.style.display = "none";
-          scoreElement.textContent = "";
-          missingWordsElement.textContent = "";
-          resetMic();
+            checkmark.classList.add("show");
+            wrong.classList.remove("show");
+            transcribedText.textContent = "";
+            transcribedText.style.display = "none";
+            scoreElement.textContent = "";
+            missingWordsElement.textContent = "";
+            resetMic();
+    
+            // Wait for a short moment to show the checkmark, then move to the next card
+            setTimeout(() => {
+                if (currentFlashcardIndex < flashcards.length - 1) {
+                    currentFlashcardIndex++;
+                    updateFlashcard();
+                } else {
+                    showCongratulationsPopup();
+                }
+            }, 1000); // Wait for 1 second before moving to the next card
+        }
 
-          // Wait for a short moment to show the checkmark, then move to the next card
-          setTimeout(() => {
-              if (currentFlashcardIndex < flashcards.length - 1) {
-                  currentFlashcardIndex++;
-                  updateFlashcard();
-              } else {
-                  showCongratulationsPopup();
-              }
-          }, 1000); // Wait for 1 second before moving to the next card
-      }
-
-        function showWrong(transcribed) {
+        function showWrong(transcribed, score) {
             wrong.classList.add("show");
             transcribedText.textContent = `You said: ${transcribed}`;
             transcribedText.style.display = "block";
-            if (attemptCount >= maxAttempts) {
+            scoreElement.textContent = `Score: ${score}`;
+            
+            attemptCount++;
+            
+            if (attemptCount >= maxAttempts || freeFlow) {
                 nextArrow.classList.add("show");
+            }
+            
+            if (attemptCount >= maxAttempts) {
                 resetMic();
             }
         }
+    
 
         function resetMic() {
             micDiv.classList.remove("recording");
@@ -338,7 +371,9 @@
         function resetUI() {
             checkmark.classList.remove("show");
             wrong.classList.remove("show");
-            nextArrow.classList.remove("show");
+            if (!freeFlow) {
+                nextArrow.classList.remove("show");
+            }
             transcribedText.style.display = "none";
             scoreElement.textContent = "";
             missingWordsElement.textContent = "";
@@ -370,14 +405,16 @@
         }
 
         nextArrow.addEventListener("click", () => {
-            if (currentFlashcardIndex < flashcards.length - 1) {
-                currentFlashcardIndex++;
-                updateFlashcard();
-            } else {
-                showCongratulationsPopup();
+            if (freeFlow || attemptCount >= maxAttempts || checkmark.classList.contains("show")) {
+                if (currentFlashcardIndex < flashcards.length - 1) {
+                    currentFlashcardIndex++;
+                    updateFlashcard();
+                    resetMic();
+                } else {
+                    showCongratulationsPopup();
+                }
             }
         });
-
         prevArrow.addEventListener("click", () => {
             if (currentFlashcardIndex > 0) {
                 currentFlashcardIndex--;

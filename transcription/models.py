@@ -21,14 +21,19 @@ class ClassCode(models.Model):
     def __str__(self):
         return self.code
 class Assignment(models.Model):
-    title = models.CharField(max_length=200, default="French Assignment")
+    LANGUAGE_CHOICES = [
+        ('fr', 'French'),
+        ('es', 'Spanish'),
+    ]
+
+    title = models.CharField(max_length=200, default="Language Assignment")
     description = models.TextField(default="This is a default description.")
     due_date = models.DateField(default="2024-08-26")
     class_code = models.ForeignKey(ClassCode, related_name='assignments_set', on_delete=models.CASCADE, default=2)
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='fr')
 
     def __str__(self):
         return self.title
-
 class Question(models.Model):
     assignment = models.ForeignKey(Assignment, related_name='questions', on_delete=models.CASCADE)
     question_text = models.TextField(default="What is your name?")
@@ -36,17 +41,21 @@ class Question(models.Model):
     
     def __str__(self):
         return self.question_text
-
 class FlashcardSet(models.Model):
-    name = models.CharField(max_length=200, default="Basic French Words")
+    LANGUAGE_CHOICES = [
+        ('fr', 'French'),
+        ('es', 'Spanish'),
+    ]
+    name = models.CharField(max_length=200, default="Basic Language Words")
     class_code = models.ForeignKey(ClassCode, related_name='flashcard_sets_set', on_delete=models.CASCADE, default=2)
     bulk_flashcards = models.TextField(max_length=100000, blank=True)
+    language = models.CharField(max_length=2, choices=LANGUAGE_CHOICES, default='fr')
+    free_flow = models.BooleanField(default=False)  # New field for Free Flow option
 
     def __str__(self):
         return self.name
 
     def save(self, *args, **kwargs):
-        # Normalize the bulk_flashcards input
         self.bulk_flashcards = unicodedata.normalize('NFKC', self.bulk_flashcards)
         super().save(*args, **kwargs)
         if self.bulk_flashcards:
@@ -57,24 +66,22 @@ class FlashcardSet(models.Model):
         flashcard_pairs = re.split(r';\s*', self.bulk_flashcards.strip())
         for pair in flashcard_pairs:
             if ',' in pair:
-                french, english = pair.split(',', 1)
-                french = self.clean_text(french)
-                english = self.clean_text(english)
+                french_word, english_translation = pair.split(',', 1)
+                french_word = self.clean_text(french_word)
+                english_translation = self.clean_text(english_translation)
                 Flashcard.objects.create(
                     flashcard_set=self,
-                    french_word=french,
-                    english_translation=english
+                    french_word=french_word,
+                    english_translation=english_translation
                 )
 
     @staticmethod
     def clean_text(text):
-        # Unescape HTML entities
         text = html.unescape(text)
-        # Normalize Unicode characters
         text = unicodedata.normalize('NFKC', text)
-        # Replace specific problematic characters
         text = text.replace('&#x27;', "'").replace('&apos;', "'")
         return text.strip()
+
 
 class Flashcard(models.Model):
     flashcard_set = models.ForeignKey(FlashcardSet, related_name='flashcards', on_delete=models.CASCADE)
@@ -88,13 +95,7 @@ class Flashcard(models.Model):
         self.french_word = FlashcardSet.clean_text(self.french_word)
         self.english_translation = FlashcardSet.clean_text(self.english_translation)
         super().save(*args, **kwargs)
-class Flashcard(models.Model):
-    flashcard_set = models.ForeignKey(FlashcardSet, related_name='flashcards', on_delete=models.CASCADE)
-    french_word = models.CharField(max_length=200, default="Bonjour")
-    english_translation = models.CharField(max_length=200, default="Hello")
 
-    def __str__(self):
-        return f'{self.french_word} - {self.english_translation}'
 
 
 class UserClassEnrollment(models.Model):

@@ -20,11 +20,12 @@ class FlashcardInline(admin.TabularInline):
 @admin.register(FlashcardSet)
 class FlashcardSetAdmin(admin.ModelAdmin):
     inlines = [FlashcardInline]
-    fields = ('name', 'bulk_flashcards')
+    fields = ('name', 'language', 'bulk_flashcards', "free_flow")
 
     def save_model(self, request, obj, form, change):
         obj.bulk_flashcards = FlashcardSet.clean_text(obj.bulk_flashcards)
         super().save_model(request, obj, form, change)
+
 
 @admin.register(Flashcard)
 class FlashcardAdmin(admin.ModelAdmin):
@@ -211,4 +212,4 @@ class QuestionInline(admin.TabularInline):
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
-    fields = ('title', 'description', 'due_date')
+    fields = ('title', 'description', 'due_date','language')
