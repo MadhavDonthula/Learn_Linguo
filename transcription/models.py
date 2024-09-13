@@ -4,19 +4,30 @@ from django.utils.translation import gettext_lazy as _
 import re
 import html
 import unicodedata
+import random
+import string
 
 from django.db import models
 
 class ClassCode(models.Model):
-    code = models.CharField(max_length=10, unique=True, default="ABC1234567")
+    code = models.CharField(max_length=5, unique=True)
     name = models.CharField(max_length=100, default="French Class")
     assignments = models.ManyToManyField('Assignment', blank=True, related_name='class_codes')
     flashcard_sets = models.ManyToManyField('FlashcardSet', blank=True, related_name='class_codes')
 
     def save(self, *args, **kwargs):
-        # Save the instance first to get an ID
+        if not self.code:
+            # Generate a new 5-digit uppercase code
+            while True:
+                new_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+                if not ClassCode.objects.filter(code=new_code).exists():
+                    self.code = new_code
+                    break
+        else:
+            # Ensure the code is always 5 characters and uppercase
+            self.code = self.code[:5].upper()
+        
         super().save(*args, **kwargs)
-        # Now the instance has an ID, so you can safely assign many-to-many relationships
 
     def __str__(self):
         return self.code

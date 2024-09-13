@@ -56,9 +56,7 @@ class ClassCodeAdmin(admin.ModelAdmin):
     view_progress_link.allow_tags = True
 
     def save_model(self, request, obj, form, change):
-        # Save the ClassCode instance to get its ID
         super().save_model(request, obj, form, change)
-        # Now save the many-to-many relationships
         form.save_m2m()
 
     def get_urls(self):
@@ -67,7 +65,6 @@ class ClassCodeAdmin(admin.ModelAdmin):
             path('progress/<int:class_code_id>/', self.admin_site.admin_view(class_code_progress_view), name='class_code_progress'),
         ]
         return custom_urls + urls
-
 # Register the ClassCodeAdmin with the model
 admin.site.register(ClassCode, ClassCodeAdmin)
 
