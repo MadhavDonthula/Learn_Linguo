@@ -33,13 +33,16 @@
   <div class="participants-list">
     <h2>Participants</h2>
     <ul id="participants">
-      {% for participant in game.participants.all %}
-        <li>{{ participant.user.username }} (joined at {{ participant.joined_at }})</li>
-      {% empty %}
+        {% for participant in game.participants.all %}
+        <li>
+          <span class="participant-sprite">{{ participant.sprite }}</span>
+          {{ participant.user.username }}
+        </li>
+        {% empty %}
         <li id="no-participants">No participants yet.</li>
-      {% endfor %}
+        {% endfor %}
     </ul>
-  </div>
+</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
@@ -95,15 +98,23 @@ const pusher = new Pusher('{{ pusher_key }}', {
 const channel = pusher.subscribe('game-{{ game.id }}');
 channel.bind('new-participant', function(data) {
   const participantsList = document.getElementById('participants');
-  const newParticipant = document.createElement('li');
-  newParticipant.textContent = `${data.username} (joined at ${new Date(data.joined_at).toLocaleString()})`;
+  let participantElement = document.getElementById(`participant-${data.username}`);
+  
+  if (!participantElement) {
+    participantElement = document.createElement('li');
+    participantElement.id = `participant-${data.username}`;
+    participantsList.appendChild(participantElement);
+  }
+  
+  participantElement.innerHTML = `
+    <span class="participant-sprite">${data.sprite}</span>
+    ${data.username}
+  `;
   
   const noParticipantsMessage = document.getElementById('no-participants');
   if (noParticipantsMessage) {
     participantsList.removeChild(noParticipantsMessage);
   }
-  
-  participantsList.appendChild(newParticipant);
 });
 </script>
 {% endblock %}

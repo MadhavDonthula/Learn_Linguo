@@ -528,14 +528,39 @@ def join_game(request):
         return redirect('student_view_game', game_id=game.id)
     
     return redirect('index')  # Redirect to home page if not a POST request
+from django.shortcuts import render
+from .models import Game1, GameParticipant
 
-@login_required
 def student_view_game(request, game_id):
-    game = get_object_or_404(Game1, id=game_id)
-    participant = get_object_or_404(GameParticipant, user=request.user, game=game)
-    
+    game = Game1.objects.get(id=game_id)
+    sprite_choices = GameParticipant.SPRITE_CHOICES
     context = {
         'game': game,
-        'participant': participant,
+        'sprite_choices': sprite_choices,
     }
     return render(request, 'transcription/student_view_game.html', context)
+
+from django.views.decorators.http import require_POST
+
+@login_required
+@require_POST
+def update_sprite(request, game_id):
+    sprite = request.POST.get('sprite')
+    if sprite not in dict(GameParticipant.SPRITE_CHOICES):
+        return JsonResponse({'status': 'error', 'message': 'Invalid sprite'}, status=400)
+    
+    participant, created = GameParticipant.objects.get_or_create(
+        user=request.user,
+        game_id=game_id
+    )
+    participant.sprite = sprite
+    participant.save()
+    
+    # Trigger Pusher event to update sprite
+    pusher_client.trigger(f'game-{game_id}', 'new-participant', {
+        'username': request.user.username,
+        'sprite': sprite,
+        'joined_at': participant.joined_at.isoformat()
+    })
+    
+    return JsonResponse({'status': 'success', 'message': 'Sprite updated'})

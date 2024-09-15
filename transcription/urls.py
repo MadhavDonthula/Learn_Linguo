@@ -24,6 +24,8 @@ urlpatterns = [
         path('check-class-code/<str:code>/', views.check_class_code, name='check_class_code'),
             path('join_game/', views.join_game, name='join_game'),
     path('game/<int:game_id>/', views.student_view_game, name='student_view_game'),
+    path('game/<int:game_id>/update_sprite/', views.update_sprite, name='update_sprite'),
+
 
 
 

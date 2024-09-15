@@ -213,12 +213,27 @@ class Game1(models.Model):
         return f"Game for {self.flashcard_set.name} (Code: {self.code})"
     
 class GameParticipant(models.Model):
+    SPRITE_CHOICES = [
+       ('🐱', 'Cat'),
+        ('🐶', 'Dog'),
+        ('🐰', 'Rabbit'),
+        ('🦊', 'Fox'),
+        ('🦉', 'Owl'),
+        ('🐼', 'Panda'),
+        ('🐨', 'Koala'),
+        ('🐯', 'Tiger'),
+        ('🦁', 'Lion'),
+        ('🐸', 'Frog'),
+        # ... Add more sprite choices here, up to 30
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     game = models.ForeignKey('Game1', on_delete=models.CASCADE, related_name='participants')
     joined_at = models.DateTimeField(auto_now_add=True)
+    sprite = models.CharField(max_length=20, choices=SPRITE_CHOICES, default='cat')
 
     class Meta:
         unique_together = ('user', 'game')
 
     def __str__(self):
-        return f"{self.user.username} in {self.game.code}"
+        return f"{self.user.username} ({self.sprite}) in {self.game.code}"

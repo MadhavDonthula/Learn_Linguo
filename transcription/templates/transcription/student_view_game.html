@@ -1,24 +1,94 @@
 {% load static %}
 
-{% block extra_css %}
-<link rel="stylesheet" type="text/css" href="{% static 'transcription/student_game_view.css' %}" />
-{% endblock %}
-
 {% block content %}
-<div class="container">
-  <h1>Game: {{ game.flashcard_set.name }}</h1>
-  <div class="game-info">
-    <p>Game Code: {{ game.code }}</p>
-    <p>Participants: {{ game.participants.count }}</p>
-  </div>
-  
-  <!-- Add your game interface here -->
-  <div class="game-interface">
-    <p>Game interface will be implemented here.</p>
-  </div>
-</div>
-{% endblock %}
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    h1 {
+        color: #333;
+        text-align: center;
+    }
+    #sprite-selection {
+        background-color: #f0f0f0;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    .sprite-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+    }
+    .sprite-option {
+        background-color: white;
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+    .sprite-option:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .sprite-option img {
+        max-width: 100%;
+        height: auto;
+    }
+    .sprite-option p {
+        margin: 5px 0 0;
+        font-size: 14px;
+    }
+    #game-info {
+        background-color: #e6f7ff;
+        border-radius: 10px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+</style>
 
-{% block extra_js %}
-<script src="{% static 'transcription/student_game_view.js' %}"></script>
+<h1>Join Game: {{ game.code }}</h1>
+
+<div id="sprite-selection">
+    <h2 style="color: #444; text-align: center;">Choose your sprite:</h2>
+    <div class="sprite-grid">
+        {% for sprite_value, sprite_name in sprite_choices %}
+        <div class="sprite-option" data-sprite="{{ sprite_value }}">
+            <img src="{% static 'images/sprites/'|add:sprite_value|add:'.png' %}" alt="{{ sprite_name }}">
+            <p>{{ sprite_name }}</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="game-info" style="display: none;">
+    <h2 style="color: #444; text-align: center;">Welcome to the game!</h2>
+    <p style="text-align: center;">Your sprite: <span id="selected-sprite" style="font-weight: bold;"></span></p>
+    <!-- Add more game information here -->
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('.sprite-option').click(function() {
+        var sprite = $(this).data('sprite');
+        $.post("{% url 'update_sprite' game.id %}", {
+            sprite: sprite,
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        }).done(function(data) {
+            $('#sprite-selection').hide();
+            $('#game-info').show();
+            $('#selected-sprite').text(sprite);
+        }).fail(function(xhr) {
+            alert('Error: ' + xhr.responseJSON.message);
+        });
+    });
+});
+</script>
 {% endblock %}
