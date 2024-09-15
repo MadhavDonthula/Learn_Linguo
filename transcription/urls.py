@@ -2,6 +2,7 @@ from django.urls import path
 from django.contrib import admin
 from . import views
 
+
 urlpatterns = [
     path('', views.home, name='home'),
     path('register/', views.registerPage, name='register'),
@@ -21,6 +22,8 @@ urlpatterns = [
         path("update_question_progress", views.update_question_progress, name="update_question_progress"),
     path("assignment_progress_view", views.assignment_progress_view, name="assignment_progress_view"),
         path('check-class-code/<str:code>/', views.check_class_code, name='check_class_code'),
+            path('join_game/', views.join_game, name='join_game'),
+    path('game/<int:game_id>/', views.student_view_game, name='student_view_game'),
 
 
 

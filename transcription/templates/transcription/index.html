@@ -38,6 +38,24 @@
           transform: rotate(360deg);
         }
       }
+      .game-code-form {
+        display: flex;
+        align-items: center;
+        margin-right: 20px;
+      }
+      .game-code-input {
+        padding: 5px;
+        margin-right: 5px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+      }
+      .game-code-submit {
+        padding: 5px 10px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
     </style>
   </head>
   <body>
@@ -48,6 +66,11 @@
     <nav class="navbar">
       <a class="logo">Learn Linguo</a>
       <div class="user-actions">
+        <form class="game-code-form" method="POST" action="{% url 'join_game' %}">
+          {% csrf_token %}
+          <input type="text" name="game_code" class="game-code-input" placeholder="Enter game code" maxlength="5" required>
+          <button type="submit" class="game-code-submit">Join Game</button>
+        </form>
         <span class="username">{{ user.username }}</span>
         <form method="POST" action="{% url 'logout' %}">
           {% csrf_token %}

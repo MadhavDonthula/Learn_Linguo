@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %} {% block content %}
+<h1>Game Created Successfully</h1>
+<p>
+  A new game has been created for the flashcard set:
+  <strong>{{ flashcard_set.name }}</strong>
+</p>
+<h2>Game Code: <strong>{{ game.code }}</strong></h2>
+<p>Share this code with your students to allow them to join the game.</p>
+<a href="{% url 'admin:index' %}" class="button">Return to Admin Home</a>
+{% endblock %}

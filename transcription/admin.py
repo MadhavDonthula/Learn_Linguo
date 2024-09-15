@@ -3,12 +3,14 @@ from django.urls import path, reverse
 from django.shortcuts import render, redirect
 from django.http import Http404
 from django.utils.html import format_html
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question, UserQuestionProgress
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question, UserQuestionProgress, Game1
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.shortcuts import render, get_object_or_404
 from django.core.paginator import Paginator
 from django.core.cache import cache
+
+from django.urls import path, include
 
 
 # Register models
@@ -210,3 +212,53 @@ class QuestionInline(admin.TabularInline):
 class AssignmentAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
     fields = ('title', 'description', 'due_date','language')
+
+from django.conf import settings
+
+@admin.register(Game1)
+class Game1Admin(admin.ModelAdmin):
+    list_display = ('flashcard_set', 'code', 'created_at', 'view_game_button')
+    readonly_fields = ('code', 'created_at')
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('create/', self.admin_site.admin_view(self.create_game_view), name='game1_create'),
+            path('<int:game_id>/view/', self.admin_site.admin_view(self.view_game), name='game1_view'),
+        ]
+        return custom_urls + urls
+
+    def view_game_button(self, obj):
+        return format_html('<a class="button" href="{}">View Game</a>',
+                           reverse('admin:game1_view', args=[obj.id]))
+    view_game_button.short_description = 'View Game'
+    view_game_button.allow_tags = True
+
+    def view_game(self, request, game_id):
+        game = get_object_or_404(Game1, id=game_id)
+        context = {
+            'opts': self.model._meta,
+            'game': game,
+            'title': f"Game Code for {game.flashcard_set.name}",
+            'is_popup': True,  # This will remove the admin sidebar
+            'pusher_key': settings.PUSHER_KEY,
+            'pusher_cluster': settings.PUSHER_CLUSTER,
+        }
+        return render(request, 'admin/view_game.html', context)
+    def create_game_view(self, request):
+        if request.method == 'POST':
+            flashcard_set_id = request.POST.get('flashcard_set')
+            try:
+                flashcard_set = FlashcardSet.objects.get(id=flashcard_set_id)
+                game = Game1.objects.create(flashcard_set=flashcard_set)
+                self.message_user(request, f"Game created successfully with code: {game.code}")
+                return redirect('admin:transcription_game1_change', object_id=game.id)
+            except FlashcardSet.DoesNotExist:
+                self.message_user(request, "Invalid flashcard set selected.", level=messages.ERROR)
+
+        flashcard_sets = FlashcardSet.objects.all()
+        context = {
+            'flashcard_sets': flashcard_sets,
+            'opts': self.model._meta,
+        }
+        return render(request, 'admin/create_game.html', context)

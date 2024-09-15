@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %} {% block content %}
+<h1>Create New Game</h1>
+<form method="post">
+  {% csrf_token %}
+  <label for="flashcard_set">Select Flashcard Set:</label>
+  <select name="flashcard_set" id="flashcard_set">
+    {% for flashcard_set in flashcard_sets %}
+    <option value="{{ flashcard_set.id }}">{{ flashcard_set.name }}</option>
+    {% endfor %}
+  </select>
+  <input type="submit" value="Create Game" />
+</form>
+{% endblock %}

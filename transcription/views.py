@@ -11,10 +11,11 @@ import json
 import string
 import re
 from difflib import SequenceMatcher
+import pusher
 
 
 from openai import OpenAI
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts, Game1, GameParticipant
 from .forms import CreateUserForm
 
 from django.contrib.auth.models import User
@@ -495,3 +496,46 @@ def update_question_progress(request):
 def check_class_code(request, code):
     exists = ClassCode.objects.filter(code=code).exists()
     return JsonResponse({'exists': exists})
+
+from django.conf import settings
+
+pusher_client = pusher.Pusher(
+    app_id=settings.PUSHER_APP_ID,
+    key=settings.PUSHER_KEY,
+    secret=settings.PUSHER_SECRET,
+    cluster=settings.PUSHER_CLUSTER,
+    ssl=True
+)
+@login_required
+def join_game(request):
+    if request.method == 'POST':
+        game_code = request.POST.get('game_code')
+        game = get_object_or_404(Game1, code=game_code)
+        
+        participant, created = GameParticipant.objects.get_or_create(user=request.user, game=game)
+        
+        if created:
+            messages.success(request, f"You've successfully joined the game {game_code}!")
+            
+            # Trigger Pusher event
+            pusher_client.trigger(f'game-{game.id}', 'new-participant', {
+                'username': request.user.username,
+                'joined_at': participant.joined_at.isoformat()
+            })
+        else:
+            messages.info(request, f"You're already in the game {game_code}.")
+        
+        return redirect('student_view_game', game_id=game.id)
+    
+    return redirect('index')  # Redirect to home page if not a POST request
+
+@login_required
+def student_view_game(request, game_id):
+    game = get_object_or_404(Game1, id=game_id)
+    participant = get_object_or_404(GameParticipant, user=request.user, game=game)
+    
+    context = {
+        'game': game,
+        'participant': participant,
+    }
+    return render(request, 'transcription/student_view_game.html', context)

@@ -6,6 +6,8 @@ import html
 import unicodedata
 import random
 import string
+from django.core.exceptions import ValidationError
+models.SlugField(max_length=255)
 
 from django.db import models
 
@@ -190,3 +192,33 @@ class UserQuestionAttempts(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s attempts for question {self.question.id}"
+    
+class Game1(models.Model):
+    flashcard_set = models.ForeignKey(FlashcardSet, on_delete=models.CASCADE, related_name='games')
+    code = models.CharField(max_length=5, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if not self.code:
+            self.code = self.generate_unique_code()
+        super().save(*args, **kwargs)
+
+    def generate_unique_code(self):
+        while True:
+            code = ''.join([str(random.randint(0, 9)) for _ in range(5)])
+            if not Game1.objects.filter(code=code).exists():
+                return code
+
+    def __str__(self):
+        return f"Game for {self.flashcard_set.name} (Code: {self.code})"
+    
+class GameParticipant(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    game = models.ForeignKey('Game1', on_delete=models.CASCADE, related_name='participants')
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'game')
+
+    def __str__(self):
+        return f"{self.user.username} in {self.game.code}"

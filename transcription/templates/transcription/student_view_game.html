@@ -1,0 +1,24 @@
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" type="text/css" href="{% static 'transcription/student_game_view.css' %}" />
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>Game: {{ game.flashcard_set.name }}</h1>
+  <div class="game-info">
+    <p>Game Code: {{ game.code }}</p>
+    <p>Participants: {{ game.participants.count }}</p>
+  </div>
+  
+  <!-- Add your game interface here -->
+  <div class="game-interface">
+    <p>Game interface will be implemented here.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'transcription/student_game_view.js' %}"></script>
+{% endblock %}

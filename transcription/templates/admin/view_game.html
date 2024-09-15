@@ -1,0 +1,109 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" type="text/css" href="{% static 'transcription/game_view.css' %}" />
+  <style>
+    .participants-list {
+      margin-top: 20px;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .participants-list h2 {
+      margin-top: 0;
+    }
+    .participants-list ul {
+      list-style-type: none;
+      padding-left: 0;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div id="particles-js"></div>
+<div class="container">
+  <h1>{{ title }}</h1>
+  <div class="game-code">{{ game.code }}</div>
+  <div class="info">
+    <p>Flashcard Set: {{ game.flashcard_set.name }}</p>
+    <p>Created At: {{ game.created_at }}</p>
+  </div>
+  <div class="participants-list">
+    <h2>Participants</h2>
+    <ul id="participants">
+      {% for participant in game.participants.all %}
+        <li>{{ participant.user.username }} (joined at {{ participant.joined_at }})</li>
+      {% empty %}
+        <li id="no-participants">No participants yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+<script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+<script>
+  particlesJS("particles-js", {
+    particles: {
+      number: { value: 80, density: { enable: true, value_area: 800 } },
+      color: { value: "#4a8fe7" },
+      shape: { type: "circle" },
+      opacity: { value: 0.5, random: false },
+      size: { value: 3, random: true },
+      line_linked: {
+        enable: true,
+        distance: 150,
+        color: "#4a8fe7",
+        opacity: 0.4,
+        width: 1,
+      },
+      move: {
+        enable: true,
+        speed: 6,
+        direction: "none",
+        random: false,
+        straight: false,
+        out_mode: "out",
+        bounce: false,
+      },
+    },
+    interactivity: {
+      detect_on: "canvas",
+      events: {
+        onhover: { enable: true, mode: "repulse" },
+        onclick: { enable: true, mode: "push" },
+        resize: true,
+      },
+      modes: {
+        grab: { distance: 400, line_linked: { opacity: 1 } },
+        bubble: { distance: 400, size: 40, duration: 2, opacity: 8, speed: 3 },
+        repulse: { distance: 200, duration: 0.4 },
+        push: { particles_nb: 4 },
+        remove: { particles_nb: 2 },
+      },
+    },
+    retina_detect: true,
+  });
+// Pusher configuration
+const pusher = new Pusher('{{ pusher_key }}', {
+  cluster: '{{ pusher_cluster }}',
+  encrypted: true
+});
+
+const channel = pusher.subscribe('game-{{ game.id }}');
+channel.bind('new-participant', function(data) {
+  const participantsList = document.getElementById('participants');
+  const newParticipant = document.createElement('li');
+  newParticipant.textContent = `${data.username} (joined at ${new Date(data.joined_at).toLocaleString()})`;
+  
+  const noParticipantsMessage = document.getElementById('no-participants');
+  if (noParticipantsMessage) {
+    participantsList.removeChild(noParticipantsMessage);
+  }
+  
+  participantsList.appendChild(newParticipant);
+});
+</script>
+{% endblock %}
