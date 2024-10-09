@@ -197,6 +197,8 @@ class Game1(models.Model):
     flashcard_set = models.ForeignKey(FlashcardSet, on_delete=models.CASCADE, related_name='games')
     code = models.CharField(max_length=5, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    started = models.BooleanField(default=False)
+    assignments_created = models.BooleanField(default=False)  # New field to track if assignments have been created
 
     def save(self, *args, **kwargs):
         if not self.code:
@@ -211,10 +213,9 @@ class Game1(models.Model):
 
     def __str__(self):
         return f"Game for {self.flashcard_set.name} (Code: {self.code})"
-    
 class GameParticipant(models.Model):
     SPRITE_CHOICES = [
-       ('🐱', 'Cat'),
+        ('🐱', 'Cat'),
         ('🐶', 'Dog'),
         ('🐰', 'Rabbit'),
         ('🦊', 'Fox'),
@@ -231,9 +232,21 @@ class GameParticipant(models.Model):
     game = models.ForeignKey('Game1', on_delete=models.CASCADE, related_name='participants')
     joined_at = models.DateTimeField(auto_now_add=True)
     sprite = models.CharField(max_length=20, choices=SPRITE_CHOICES, default='cat')
+    team = models.CharField(max_length=100, blank=True, null=True)  # New field to store team name
 
     class Meta:
         unique_together = ('user', 'game')
 
     def __str__(self):
         return f"{self.user.username} ({self.sprite}) in {self.game.code}"
+    
+class GameAssignment(models.Model):
+    game = models.ForeignKey(Game1, on_delete=models.CASCADE, related_name='assignments')
+    participant = models.ForeignKey(GameParticipant, on_delete=models.CASCADE, related_name='game_assignment')
+    assigned_game = models.CharField(max_length=100)
+
+    class Meta:
+        unique_together = ('game', 'participant')
+
+    def __str__(self):
+        return f"{self.participant.user.username} assigned to {self.assigned_game} in game {self.game.code}"

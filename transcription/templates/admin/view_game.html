@@ -18,6 +18,23 @@
       list-style-type: none;
       padding-left: 0;
     }
+
+    .start-game-button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 15px 32px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 5px;
+      position: relative;
+      z-index: 1000;  /* Ensure the button is above other elements */
+    }
+  
   </style>
 {% endblock %}
 
@@ -30,19 +47,24 @@
     <p>Flashcard Set: {{ game.flashcard_set.name }}</p>
     <p>Created At: {{ game.created_at }}</p>
   </div>
+  <button id="start-game" class="start-game-button" {% if game.started %}style="display: none;"{% endif %}>Start Game</button>
+  <div id="team-info" {% if not game.started %}style="display: none;"{% endif %}>
+    <h2>Teams</h2>
+    <ul id="team-list"></ul>
+  </div>
   <div class="participants-list">
     <h2>Participants</h2>
     <ul id="participants">
-        {% for participant in game.participants.all %}
-        <li>
-          <span class="participant-sprite">{{ participant.sprite }}</span>
-          {{ participant.user.username }}
-        </li>
-        {% empty %}
-        <li id="no-participants">No participants yet.</li>
-        {% endfor %}
+      {% for participant in game.participants.all %}
+      <li>
+        <span class="participant-sprite">{{ participant.sprite }}</span>
+        {{ participant.user.username }}
+      </li>
+      {% empty %}
+      <li id="no-participants">No participants yet.</li>
+      {% endfor %}
     </ul>
-</div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
@@ -115,6 +137,69 @@ channel.bind('new-participant', function(data) {
   if (noParticipantsMessage) {
     participantsList.removeChild(noParticipantsMessage);
   }
+});
+function checkGameStarted() {
+  const gameStarted = {% if game.started %}true{% else %}false{% endif %};
+  if (gameStarted) {
+    document.getElementById('start-game').style.display = 'none';
+    document.getElementById('team-info').style.display = 'block';
+    fetchTeams();
+  }
+}
+
+function fetchTeams() {
+  fetch('{% url "get_teams" game.id %}')
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        displayTeams(data.teams);
+      } else {
+        console.error('Failed to fetch teams:', data.message);
+      }
+    })
+    .catch(error => {
+      console.error('Error fetching teams:', error);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  checkGameStarted();
+
+  document.getElementById('start-game').addEventListener('click', function() {
+    fetch('{% url "start_game" game.id %}', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'Content-Type': 'application/json',
+      },
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        document.getElementById('start-game').style.display = 'none';
+        document.getElementById('team-info').style.display = 'block';
+        displayTeams(data.teams);
+      } else {
+        alert('Failed to start the game. Please try again.');
+      }
+    });
+  });
+});
+
+function displayTeams(teams) {
+  const teamList = document.getElementById('team-list');
+  teamList.innerHTML = '';
+  for (const [teamName, teamData] of Object.entries(teams)) {
+    const teamItem = document.createElement('li');
+    teamItem.innerHTML = `<strong>${teamName}</strong>: ${teamData.members.join(', ')}`;
+    teamList.appendChild(teamItem);
+  }
+}
+
+channel.bind('game-started', function(data) {
+  document.getElementById('start-game').style.display = 'none';
+  document.getElementById('team-info').style.display = 'block';
+  displayTeams(data.teams);
 });
 </script>
 {% endblock %}

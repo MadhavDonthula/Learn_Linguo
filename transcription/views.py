@@ -10,12 +10,13 @@ import unicodedata
 import json
 import string
 import re
+import random
 from difflib import SequenceMatcher
 import pusher
 
 
 from openai import OpenAI
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts, Game1, GameParticipant
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts, Game1, GameParticipant, GameAssignment
 from .forms import CreateUserForm
 
 from django.contrib.auth.models import User
@@ -531,14 +532,27 @@ def join_game(request):
 from django.shortcuts import render
 from .models import Game1, GameParticipant
 
+@login_required
 def student_view_game(request, game_id):
-    game = Game1.objects.get(id=game_id)
-    sprite_choices = GameParticipant.SPRITE_CHOICES
-    context = {
-        'game': game,
-        'sprite_choices': sprite_choices,
-    }
-    return render(request, 'transcription/student_view_game.html', context)
+    game = get_object_or_404(Game1, id=game_id)
+    participant = get_object_or_404(GameParticipant, user=request.user, game=game)
+
+    if game.started:
+        # Get all participants in the same team
+        team_members = list(GameParticipant.objects.filter(game=game, team=participant.team).values_list('user__username', flat=True))
+
+        return render(request, 'transcription/team.html', {
+            'game': game,
+            'team_name': participant.team,
+            'team_members_json': json.dumps(team_members),
+        })
+    else:
+        sprite_choices = GameParticipant.SPRITE_CHOICES
+        return render(request, 'transcription/student_view_game.html', {
+            'game': game,
+            'sprite_choices': sprite_choices,
+
+        })
 
 from django.views.decorators.http import require_POST
 
@@ -564,3 +578,128 @@ def update_sprite(request, game_id):
     })
     
     return JsonResponse({'status': 'success', 'message': 'Sprite updated'})
+
+@login_required
+@require_POST
+def start_game(request, game_id):
+    game = get_object_or_404(Game1, id=game_id)
+    if game.started:
+        return JsonResponse({'status': 'error', 'message': 'Game already started'})
+
+    participants = list(game.participants.all())
+    random.shuffle(participants)
+
+    team_names = [
+        "Québec", "Côte d'Ivoire", "Sénégal", "Cameroun", "Mali",
+        "Belgique", "Suisse", "Congo", "Bénin", "Gabon"
+    ]
+    random.shuffle(team_names)
+
+    num_teams = min(len(team_names), max(2, len(participants) // 4))
+    teams = {name: {'name': name, 'members': []} for name in team_names[:num_teams]}
+
+    for i, participant in enumerate(participants):
+        team_name = team_names[i % num_teams]
+        teams[team_name]['members'].append(participant.user.username)
+        participant.team = team_name
+        participant.save()
+
+    game.started = True
+    game.save()
+
+    # Trigger Pusher event for game start
+    pusher_client.trigger(f'game-{game.id}', 'game-started', {
+        'teams': teams
+    })
+
+    return JsonResponse({'status': 'success', 'teams': teams})
+
+@login_required
+def get_teams(request, game_id):
+    game = get_object_or_404(Game1, id=game_id)
+    if not game.started:
+        return JsonResponse({'status': 'error', 'message': 'Game has not started yet'})
+
+    teams = {}
+    for participant in game.participants.all():
+        if participant.team not in teams:
+            teams[participant.team] = {'name': participant.team, 'members': []}
+        teams[participant.team]['members'].append(participant.user.username)
+
+    return JsonResponse({'status': 'success', 'teams': teams})
+
+from django.views.decorators.http import require_http_methods
+import traceback
+@require_http_methods(["GET"])
+def get_game_assignments(request, game_id):
+    print(f"get_game_assignments called with game_id: {game_id}")
+    print(f"Request method: {request.method}")
+    print(f"Request GET parameters: {request.GET}")
+    
+    try:
+        game = Game1.objects.get(id=game_id)
+        print(f"Game found: {game}")
+    except Game1.DoesNotExist:
+        print(f"Game with id {game_id} not found")
+        return JsonResponse({'error': 'Game not found'}, status=404)
+    
+    # Get the team of the requesting user
+    try:
+        user_participant = GameParticipant.objects.get(user=request.user, game=game)
+        team = user_participant.team
+    except GameParticipant.DoesNotExist:
+        return JsonResponse({'error': 'User not part of this game'}, status=400)
+    
+    # Get all participants in the same team
+    team_participants = GameParticipant.objects.filter(game=game, team=team)
+    
+    assignments = GameAssignment.objects.filter(game=game, participant__in=team_participants)
+    print(f"Found {assignments.count()} assignments for team {team} in game {game_id}")
+    
+    if not assignments.exists():
+        print(f"No assignments exist for team {team} in game {game_id}. Creating new assignments.")
+        games = ["Puzzle Mania", "Word Scramble", "Memory Match", "Quick Math"]
+        
+        if team_participants.count() > len(games):
+            print(f"Not enough games for all team members. Team members: {team_participants.count()}, Games: {len(games)}")
+            return JsonResponse({'error': 'Not enough games for all team members'}, status=400)
+        
+        shuffled_games = random.sample(games, team_participants.count())
+        
+        new_assignments = []
+        for participant, game_name in zip(team_participants, shuffled_games):
+            assignment = GameAssignment.objects.create(
+                game=game,
+                participant=participant,
+                assigned_game=game_name
+            )
+            new_assignments.append(assignment)
+            print(f"Created assignment: {participant.user.username} - {game_name}")
+        
+        assignments_dict = {a.participant.user.username: a.assigned_game for a in new_assignments}
+    else:
+        print("Existing assignments found.")
+        assignments_dict = {a.participant.user.username: a.assigned_game for a in assignments}
+    
+    print(f"Final assignments for team {team}: {json.dumps(assignments_dict, indent=2)}")
+    
+    # Trigger Pusher event
+    pusher_client.trigger(f'game-{game_id}', 'game-assignments', {'assignments': assignments_dict})
+    
+    return JsonResponse({'assignments': assignments_dict})
+
+def puzzle_mania(request):
+    # Add game-specific logic here
+    return render(request, 'transcription/puzzle_mania.html')
+
+def word_scramble(request):
+    # Add game-specific logic here
+    return render(request, 'transcription/word_scramble.html')
+
+def memory_match(request):
+    # Add game-specific logic here
+    return render(request, 'transcription/memory_match.html')
+
+def quick_math(request):
+    # Add game-specific logic here
+    return render(request, 'transcription/quick_math.html')

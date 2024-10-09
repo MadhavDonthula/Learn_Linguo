@@ -72,23 +72,44 @@
     <p style="text-align: center;">Your sprite: <span id="selected-sprite" style="font-weight: bold;"></span></p>
     <!-- Add more game information here -->
 </div>
-
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-$(document).ready(function() {
-    $('.sprite-option').click(function() {
-        var sprite = $(this).data('sprite');
-        $.post("{% url 'update_sprite' game.id %}", {
-            sprite: sprite,
-            csrfmiddlewaretoken: '{{ csrf_token }}'
-        }).done(function(data) {
-            $('#sprite-selection').hide();
-            $('#game-info').show();
-            $('#selected-sprite').text(sprite);
-        }).fail(function(xhr) {
-            alert('Error: ' + xhr.responseJSON.message);
+    $(document).ready(function() {
+        // Function to update sprite selection
+        function updateSpriteSelection(sprite) {
+            $.post("{% url 'update_sprite' game.id %}", {
+                sprite: sprite,
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }).done(function(data) {
+                $('#sprite-selection').hide();
+                $('#game-info').show();
+                $('#selected-sprite').text(sprite);
+                // Save the selected sprite to local storage
+                localStorage.setItem('selectedSprite', sprite);
+            }).fail(function(xhr) {
+                alert('Error: ' + xhr.responseJSON.message);
+            });
+        }
+    
+        // Check if a sprite is already selected in local storage
+        var savedSprite = localStorage.getItem('selectedSprite');
+        if (savedSprite) {
+            updateSpriteSelection(savedSprite);
+        }
+    
+        // Handle sprite selection
+        $('.sprite-option').click(function() {
+            var sprite = $(this).data('sprite');
+            updateSpriteSelection(sprite);
+        });
+    
+        // Add a button to change the sprite
+        $('#game-info').append('<button id="change-sprite">Change Sprite</button>');
+        $('#change-sprite').click(function() {
+            $('#game-info').hide();
+            $('#sprite-selection').show();
         });
     });
-});
+
 </script>
 {% endblock %}

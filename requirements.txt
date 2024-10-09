@@ -5,3 +5,4 @@ dj-database-url
 pydub
 sqlparse
 whitenoise
+pusher

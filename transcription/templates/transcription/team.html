@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Team</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .team-info, .game-assignments {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background-color: #e6f7ff;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .game-assignment {
+            text-align: center;
+            margin-top: 10px;
+        }
+        .game-name {
+            font-weight: bold;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="team-info">
+        <h1>Your Team</h1>
+        <h2 id="team-name">{{ team_name }}</h2>
+        <ul id="team-members">
+            {% for member in team_members %}
+                <li>{{ member }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="game-assignments">
+        <h2>Game Assignments</h2>
+        <div id="game-assignments-list"></div>
+    </div>
+
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+    <script>
+        const pusher = new Pusher('{{ pusher_key }}', {
+            cluster: '{{ pusher_cluster }}',
+            encrypted: true
+        });
+
+        const channel = pusher.subscribe('game-{{ game.id }}');
+        const teamName = "{{ team_name }}";
+        const currentUser = "{{ request.user.username }}";
+        let teamMembers;
+        try {
+            teamMembers = JSON.parse('{{ team_members_json|escapejs }}');
+        } catch (error) {
+            console.error('Error parsing team members:', error);
+            teamMembers = [];
+        }
+
+        function displayGameAssignments(assignments) {
+            console.log("Displaying team game assignments:", assignments);
+            const gameAssignmentsList = document.getElementById('game-assignments-list');
+            gameAssignmentsList.innerHTML = '';
+    
+            if (Object.keys(assignments).length === 0) {
+                console.log("No assignments to display");
+                gameAssignmentsList.textContent = 'No game assignments available for your team.';
+                return;
+            }
+    
+            Object.entries(assignments).forEach(([username, assignedGame]) => {
+                console.log(`Creating assignment element for team member ${username}: ${assignedGame}`);
+                const assignmentDiv = document.createElement('div');
+                assignmentDiv.className = 'game-assignment';
+                assignmentDiv.innerHTML = `${username}: <span class="game-name">${assignedGame}</span>`;
+                gameAssignmentsList.appendChild(assignmentDiv);
+
+                if (username === currentUser) {
+                    setTimeout(() => {
+                        window.location.href = `/play/${assignedGame.toLowerCase().replace(/\s+/g, '-')}/`;
+                    }, 5000);  // Redirect after 5 seconds
+                }
+            });
+        }
+    
+        function requestGameAssignments() {
+            console.log("Requesting game assignments");
+            fetch('/get_game_assignments/{{ game.id }}/')
+                .then(response => {
+                    console.log("Received response:", response);
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Parsed response data:", data);
+                    if (data.assignments) {
+                        displayGameAssignments(data.assignments);
+                    } else if (data.error) {
+                        console.error("Error from server:", data.error);
+                        document.getElementById('game-assignments-list').textContent = data.error;
+                    } else {
+                        console.error("Unexpected data structure:", data);
+                        document.getElementById('game-assignments-list').textContent = 'Unexpected response from server.';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    document.getElementById('game-assignments-list').textContent = 'Failed to load game assignments.';
+                });
+        }
+
+        channel.bind('game-assignments', function(data) {
+            displayGameAssignments(data.assignments);
+        });
+
+        channel.bind('game-updated', function(data) {
+            if (data.team_name) {
+                document.getElementById('team-name').textContent = data.team_name;
+            }
+            if (data.team_members) {
+                teamMembers = data.team_members;
+                const teamMembersList = document.getElementById('team-members');
+                teamMembersList.innerHTML = '';
+                teamMembers.forEach(member => {
+                    const li = document.createElement('li');
+                    li.textContent = member;
+                    teamMembersList.appendChild(li);
+                });
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("DOM fully loaded, calling requestGameAssignments()");
+            requestGameAssignments();
+        });
+    </script>
+</body>
+</html>

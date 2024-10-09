@@ -25,6 +25,17 @@ urlpatterns = [
             path('join_game/', views.join_game, name='join_game'),
     path('game/<int:game_id>/', views.student_view_game, name='student_view_game'),
     path('game/<int:game_id>/update_sprite/', views.update_sprite, name='update_sprite'),
+        path('game/<int:game_id>/start/', views.start_game, name='start_game'),
+            path('game/<int:game_id>/teams/', views.get_teams, name='get_teams'),
+    path('get_game_assignments/<int:game_id>/', views.get_game_assignments, name='get_game_assignments'),
+       path('play/puzzle-mania/', views.puzzle_mania, name='puzzle_mania'),
+    path('play/word-scramble/', views.word_scramble, name='word_scramble'),
+    path('play/memory-match/', views.memory_match, name='memory_match'),
+    path('play/quick-math/', views.quick_math, name='quick_math'),
+
+
+
+
 
 
 
