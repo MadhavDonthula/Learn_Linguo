@@ -548,12 +548,13 @@ def student_view_game(request, game_id):
         })
     else:
         sprite_choices = GameParticipant.SPRITE_CHOICES
-        return render(request, 'transcription/student_view_game.html', {
+        context = {
             'game': game,
             'sprite_choices': sprite_choices,
-
-        })
-
+            'pusher_key': settings.PUSHER_APP_KEY,
+            'pusher_cluster': settings.PUSHER_CLUSTER,
+        }
+        return render(request, 'transcription/student_view_game.html', context)
 from django.views.decorators.http import require_POST
 
 @login_required
@@ -658,7 +659,7 @@ def get_game_assignments(request, game_id):
     
     if not assignments.exists():
         print(f"No assignments exist for team {team} in game {game_id}. Creating new assignments.")
-        games = ["Puzzle Mania", "Word Scramble", "Memory Match", "Quick Math"]
+        games = [ "Snake"]
         
         if team_participants.count() > len(games):
             print(f"Not enough games for all team members. Team members: {team_participants.count()}, Games: {len(games)}")
@@ -696,10 +697,104 @@ def word_scramble(request):
     # Add game-specific logic here
     return render(request, 'transcription/word_scramble.html')
 
-def memory_match(request):
-    # Add game-specific logic here
-    return render(request, 'transcription/memory_match.html')
+def snake(request, game_id):
+    game = get_object_or_404(Game1, id=game_id)
+    participant = get_object_or_404(GameParticipant, user=request.user, game=game)
+    
+    context = {
+        'game': game,
+        'participant': participant,
+        'pusher_key': settings.PUSHER_KEY,
+        'pusher_cluster': settings.PUSHER_CLUSTER,
+    }
+    return render(request, 'transcription/snake.html', context)
 
 def quick_math(request):
     # Add game-specific logic here
     return render(request, 'transcription/quick_math.html')
+import logging
+
+from django.db.models import F
+
+logger = logging.getLogger(__name__)
+@require_http_methods(["GET"])
+def get_snake_leaderboard(request, game_id):
+    logger.info(f"Fetching leaderboard for game_id: {game_id}")
+    try:
+        leaderboard_data = get_snake_leaderboard_data(game_id)
+        logger.info(f"Returning leaderboard data with {len(leaderboard_data)} entries")
+        return JsonResponse({'leaderboard': leaderboard_data})
+    except Exception as e:
+        logger.error(f"Error in get_snake_leaderboard: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+def update_snake_score(request, game_id):
+    logger.info(f"Received score update request for game {game_id}")
+    try:
+        game = get_object_or_404(Game1, id=game_id)
+        participant = get_object_or_404(GameParticipant, user=request.user, game=game)
+        
+        new_score = int(request.POST.get('score', 0))
+        logger.info(f"Updating score for user {request.user.username} to {new_score}")
+        
+        # Update score
+        assignment = GameAssignment.objects.get(
+            game=game,
+            participant=participant,
+            assigned_game='Snake'
+        )
+        assignment.score = new_score
+        assignment.save()
+        
+        # Get updated leaderboard data
+        leaderboard_data = get_snake_leaderboard_data(game_id)
+        
+        # Broadcast the updated leaderboard
+        pusher_client.trigger(f'game-{game_id}', 'update-snake-leaderboard', {'leaderboard': leaderboard_data})
+        
+        return JsonResponse({'status': 'success', 'leaderboard': leaderboard_data})
+    except Exception as e:
+        logger.error(f"Error in update_snake_score: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+def get_snake_leaderboard_data(game_id):
+    game = get_object_or_404(Game1, id=game_id)
+    assignments = GameAssignment.objects.filter(
+        game=game, 
+        assigned_game='Snake'
+    ).select_related('participant__user').order_by('-score')
+    
+    return [
+        {
+            'username': assignment.participant.user.username,
+            'team': assignment.participant.team,
+            'score': assignment.score
+        }
+        for assignment in assignments
+    ]
+def get_flashcards(request, flashcard_set_id):
+    try:
+        flashcard_set = get_object_or_404(FlashcardSet, id=flashcard_set_id)
+        flashcards = flashcard_set.flashcards.all()
+        
+        if not flashcards.exists():
+            logger.warning(f"No flashcards found for FlashcardSet with id {flashcard_set_id}")
+            return JsonResponse({'error': 'No flashcards found for this set'}, status=404)
+        
+        flashcards_data = [
+            {
+                'french_word': flashcard.french_word,
+                'english_translation': flashcard.english_translation
+            }
+            for flashcard in flashcards
+        ]
+        
+        if not flashcards_data:
+            logger.error(f"Flashcards exist but data is empty for FlashcardSet with id {flashcard_set_id}")
+            return JsonResponse({'error': 'Flashcard data is empty'}, status=500)
+        
+        return JsonResponse({'flashcards': flashcards_data})
+    except Exception as e:
+        logger.exception(f"Error in get_flashcards for FlashcardSet with id {flashcard_set_id}")
+        return JsonResponse({'error': str(e)}, status=500)

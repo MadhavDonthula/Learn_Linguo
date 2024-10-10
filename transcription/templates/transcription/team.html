@@ -69,6 +69,8 @@
         const channel = pusher.subscribe('game-{{ game.id }}');
         const teamName = "{{ team_name }}";
         const currentUser = "{{ request.user.username }}";
+        const gameId = {{ game.id }};
+
         let teamMembers;
         try {
             teamMembers = JSON.parse('{{ team_members_json|escapejs }}');
@@ -76,28 +78,27 @@
             console.error('Error parsing team members:', error);
             teamMembers = [];
         }
-
         function displayGameAssignments(assignments) {
             console.log("Displaying team game assignments:", assignments);
             const gameAssignmentsList = document.getElementById('game-assignments-list');
             gameAssignmentsList.innerHTML = '';
-    
+        
             if (Object.keys(assignments).length === 0) {
                 console.log("No assignments to display");
                 gameAssignmentsList.textContent = 'No game assignments available for your team.';
                 return;
             }
-    
+        
             Object.entries(assignments).forEach(([username, assignedGame]) => {
                 console.log(`Creating assignment element for team member ${username}: ${assignedGame}`);
                 const assignmentDiv = document.createElement('div');
                 assignmentDiv.className = 'game-assignment';
                 assignmentDiv.innerHTML = `${username}: <span class="game-name">${assignedGame}</span>`;
                 gameAssignmentsList.appendChild(assignmentDiv);
-
+        
                 if (username === currentUser) {
                     setTimeout(() => {
-                        window.location.href = `/play/${assignedGame.toLowerCase().replace(/\s+/g, '-')}/`;
+                        window.location.href = `/play/${assignedGame.toLowerCase().replace(/\s+/g, '-')}/${gameId}/`;
                     }, 5000);  // Redirect after 5 seconds
                 }
             });
@@ -132,9 +133,8 @@
         }
 
         channel.bind('game-assignments', function(data) {
-            displayGameAssignments(data.assignments);
+            displayGameAssignments(data.assignments, {{ game.id }});
         });
-
         channel.bind('game-updated', function(data) {
             if (data.team_name) {
                 document.getElementById('team-name').textContent = data.team_name;

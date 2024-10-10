@@ -30,8 +30,15 @@ urlpatterns = [
     path('get_game_assignments/<int:game_id>/', views.get_game_assignments, name='get_game_assignments'),
        path('play/puzzle-mania/', views.puzzle_mania, name='puzzle_mania'),
     path('play/word-scramble/', views.word_scramble, name='word_scramble'),
-    path('play/memory-match/', views.memory_match, name='memory_match'),
+    path('play/snake/<int:game_id>/', views.snake, name='snake'),
     path('play/quick-math/', views.quick_math, name='quick_math'),
+        path('get_snake_leaderboard/<int:game_id>/', views.get_snake_leaderboard, name='get_snake_leaderboard'),
+        path('get_flashcards/<int:flashcard_set_id>/', views.get_flashcards, name='get_flashcards'),
+     path('update_snake_score/<int:game_id>/', views.update_snake_score, name='update_snake_score'),
+
+
+
+
 
 
 

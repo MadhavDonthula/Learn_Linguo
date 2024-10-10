@@ -244,6 +244,7 @@ class GameAssignment(models.Model):
     game = models.ForeignKey(Game1, on_delete=models.CASCADE, related_name='assignments')
     participant = models.ForeignKey(GameParticipant, on_delete=models.CASCADE, related_name='game_assignment')
     assigned_game = models.CharField(max_length=100)
+    score = models.IntegerField(default=0)  # New field to store the score
 
     class Meta:
         unique_together = ('game', 'participant')

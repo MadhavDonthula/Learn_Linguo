@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake Game with Leaderboard and Flashcard Questions</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: space-between;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #f0f0f0;
+        }
+        .game-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        #gameCanvas {
+            border: 2px solid #333;
+            background-color: #fff;
+        }
+        .leaderboard-container {
+            width: 300px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #333;
+            text-align: center;
+        }
+        #leaderboard {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #leaderboard th, #leaderboard td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        #leaderboard th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        #leaderboard tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        #score {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+        #questionModal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+        }
+        .answer-button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .answer-button:hover {
+            background-color: #45a049;
+        }
+                #userRank {
+            font-size: 18px;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Snake Game</h1>
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div id="score">Score: 0</div>
+    </div>
+
+    <div class="leaderboard-container">
+        <h2>Leaderboard</h2>
+        <table id="leaderboard">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Team</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+                <!-- Leaderboard data will be inserted here -->
+            </tbody>
+        </table>
+    </div>
+
+    <div id="questionModal">
+        <div class="modal-content">
+            <h2 id="frenchWord"></h2>
+            <div id="answerButtons"></div>
+        </div>
+    </div>
+
+    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+    <script>
+  // Snake game implementation
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const scoreElement = document.getElementById('score');
+  const questionModal = document.getElementById('questionModal');
+  const frenchWordElement = document.getElementById('frenchWord');
+  const answerButtonsElement = document.getElementById('answerButtons');
+  
+  const gridSize = 20;
+  const tileCount = canvas.width / gridSize;
+  
+  let snake = [
+      {x: 10, y: 10},
+  ];
+  let food = {x: 15, y: 15};
+  let dx = 0;
+  let dy = 0;
+  let score = 0;
+  let gameInterval;
+  let flashcards = [];
+  
+  function startGame() {
+      if (flashcards.length === 0) {
+          displayError('No flashcards available. Unable to start the game.');
+          return;
+      }
+      gameInterval = setInterval(drawGame, 100);
+  }
+  
+
+function drawGame() {
+    clearCanvas();
+    moveSnake();
+    drawSnake();
+    drawFood();
+    checkCollision();
+    updateScore();
+}
+
+function clearCanvas() {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function moveSnake() {
+    const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+        clearInterval(gameInterval);
+        showQuestion();
+    } else {
+        snake.pop();
+    }
+}
+
+function drawSnake() {
+    ctx.fillStyle = 'green';
+    snake.forEach(segment => {
+        ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+    });
+}
+
+function drawFood() {
+    ctx.fillStyle = 'yellow';
+    ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+}
+
+function generateFood() {
+    food.x = Math.floor(Math.random() * tileCount);
+    food.y = Math.floor(Math.random() * tileCount);
+}
+
+function checkCollision() {
+    const head = snake[0];
+
+    if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+        resetGame();
+    }
+
+    for (let i = 1; i < snake.length; i++) {
+        if (head.x === snake[i].x && head.y === snake[i].y) {
+            resetGame();
+        }
+    }
+}
+
+function resetGame() {
+    snake = [{x: 10, y: 10}];
+    food = {x: 15, y: 15};
+    dx = 0;
+    dy = 0;
+    score = 0;
+    updateScore();
+    sendScoreToServer(score);  // Add this line to update the server when the game resets
+}
+
+function updateScore() {
+    scoreElement.textContent = `Score: ${score}`;
+    sendScoreToServer(score);  // Add this line to update the server when the game resets
+
+}
+
+function sendScoreToServer(score) {
+    fetch(`/update_snake_score/{{ game.id }}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: `score=${score}`
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.leaderboard) {
+            updateLeaderboard(data.leaderboard);
+        }
+    })
+    .catch(error => {
+        console.error('Error updating score:', error.message);
+        displayError(`Failed to update score: ${error.message}`);
+    });
+}
+// Make sure you have this function defined
+function displayError(message) {
+    // Display the error message to the user
+    console.error(message);
+}
+function showQuestion() {
+    const flashcard = getRandomFlashcard();
+    if (!flashcard) {
+        console.error('Failed to get a random flashcard');
+        questionModal.style.display = 'none';
+        startGame();
+        return;
+    }
+
+    frenchWordElement.textContent = flashcard.french_word || flashcard.word;
+    
+    const answers = [flashcard.english_translation || flashcard.translation];
+    let attempts = 0;
+    while (answers.length < 4 && attempts < 20) {
+        const randomFlashcard = getRandomFlashcard();
+        if (randomFlashcard && !answers.includes(randomFlashcard.english_translation || randomFlashcard.translation)) {
+            answers.push(randomFlashcard.english_translation || randomFlashcard.translation);
+        }
+        attempts++;
+    }
+
+    // If we couldn't get 4 unique answers, fill with placeholders
+    while (answers.length < 4) {
+        answers.push(`Placeholder Answer ${answers.length + 1}`);
+    }
+
+    // Shuffle answers
+    answers.sort(() => Math.random() - 0.5);
+
+    answerButtonsElement.innerHTML = '';
+    answers.forEach(answer => {
+        const button = document.createElement('button');
+        button.textContent = answer;
+        button.classList.add('answer-button');
+        button.onclick = () => checkAnswer(answer, flashcard.english_translation || flashcard.translation);
+        answerButtonsElement.appendChild(button);
+    });
+
+    questionModal.style.display = 'block';
+}
+
+function checkAnswer(selectedAnswer, correctAnswer) {
+    if (selectedAnswer === correctAnswer) {
+        score++;
+        updateScore();
+        generateFood();
+        questionModal.style.display = 'none';
+        startGame();
+    } else {
+        resetGame();
+        questionModal.style.display = 'none';
+        startGame();
+    }
+}
+
+function getRandomFlashcard() {
+    if (flashcards.length === 0) {
+        console.error('No flashcards available');
+        return null;
+    }
+    return flashcards[Math.floor(Math.random() * flashcards.length)];
+}
+
+document.addEventListener('keydown', changeDirection);
+
+function changeDirection(event) {
+    const LEFT_KEY = 37;
+    const RIGHT_KEY = 39;
+    const UP_KEY = 38;
+    const DOWN_KEY = 40;
+
+    const keyPressed = event.keyCode;
+
+    const goingUp = dy === -1;
+    const goingDown = dy === 1;
+    const goingRight = dx === 1;
+    const goingLeft = dx === -1;
+
+    if (keyPressed === LEFT_KEY && !goingRight) {
+        dx = -1;
+        dy = 0;
+    }
+
+    if (keyPressed === UP_KEY && !goingDown) {
+        dx = 0;
+        dy = -1;
+    }
+
+    if (keyPressed === RIGHT_KEY && !goingLeft) {
+        dx = 1;
+        dy = 0;
+    }
+
+    if (keyPressed === DOWN_KEY && !goingUp) {
+        dx = 0;
+        dy = 1;
+    }
+}
+
+// Leaderboard implementation
+const pusher = new Pusher('{{ pusher_key }}', {
+    cluster: '{{ pusher_cluster }}',
+    encrypted: true
+});
+
+const channel = pusher.subscribe('game-{{ game.id }}');
+
+function updateLeaderboard(leaderboardData) {
+    const leaderboardBody = document.getElementById('leaderboard-body');
+    leaderboardBody.innerHTML = '';
+
+    leaderboardData.forEach((player, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${player.username}</td>
+            <td>${player.team}</td>
+            <td>${player.score}</td>
+        `;
+        leaderboardBody.appendChild(row);
+    });
+}
+
+function displayError(message) {
+    const leaderboardBody = document.getElementById('leaderboard-body');
+    leaderboardBody.innerHTML = `<tr><td colspan="4">${message}</td></tr>`;
+}
+
+function fetchLeaderboard() {
+    fetch('/get_snake_leaderboard/{{ game.id }}/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.leaderboard) {
+                updateLeaderboard(data.leaderboard);
+            } else if (data.error) {
+                displayError(`Error: ${data.error}`);
+            } else {
+                displayError('Unexpected data format received from server');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            displayError('Failed to fetch leaderboard data. Please try again later.');
+        });
+}
+
+channel.bind('update-snake-leaderboard', function(data) {
+    if (data.leaderboard) {
+        updateLeaderboard(data.leaderboard);
+    } else {
+        console.error('Invalid data received for leaderboard update');
+    }
+});
+
+// Function to get CSRF token from cookies
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Fetch leaderboard and flashcards on page load
+document.addEventListener('DOMContentLoaded', () => {
+    fetchLeaderboard();
+    fetch('/get_flashcards/{{ game.flashcard_set.id }}/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.flashcards && Array.isArray(data.flashcards) && data.flashcards.length > 0) {
+                flashcards = data.flashcards;
+                startGame();
+            } else {
+                throw new Error('No valid flashcards received from the server');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching flashcards:', error);
+            displayError('Failed to load flashcards. Please try refreshing the page.');
+        });
+});
+    </script>
+</body>
+</html>

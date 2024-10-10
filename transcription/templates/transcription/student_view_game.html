@@ -51,6 +51,14 @@
         padding: 20px;
         margin-top: 20px;
     }
+    #pusher-debug {
+        background-color: #f0f0f0;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-top: 20px;
+        font-family: monospace;
+        white-space: pre-wrap;
+    }
 </style>
 
 <h1>Join Game: {{ game.code }}</h1>
@@ -70,11 +78,55 @@
 <div id="game-info" style="display: none;">
     <h2 style="color: #444; text-align: center;">Welcome to the game!</h2>
     <p style="text-align: center;">Your sprite: <span id="selected-sprite" style="font-weight: bold;"></span></p>
-    <!-- Add more game information here -->
+    <p style="text-align: center;">Waiting for the game to start...</p>
 </div>
+
+<div id="pusher-debug"></div>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://js.pusher.com/7.0/pusher.min.js"></script>
 <script>
     $(document).ready(function() {
+        // Debug function
+        function debugLog(message) {
+            console.log(message);
+            $('#pusher-debug').append(message + '\n');
+        }
+
+        // Log important information
+        debugLog('Game ID: {{ game.id }}');
+        debugLog('Pusher Key: {{ pusher_key }}');
+        debugLog('Pusher Cluster: {{ pusher_cluster }}');
+
+        // Pusher configuration
+        const pusher = new Pusher('{{ pusher_key }}', {
+            cluster: '{{ pusher_cluster }}',
+            encrypted: true
+        });
+
+        // Enable Pusher logging
+        Pusher.logToConsole = true;
+
+        // Subscribe to the correct channel
+        const channelName = 'game-{{ game.id }}';
+        debugLog('Attempting to subscribe to channel: ' + channelName);
+        const channel = pusher.subscribe(channelName);
+
+        // Debug: Log subscription success
+        channel.bind('pusher:subscription_succeeded', function() {
+            debugLog('Successfully subscribed to channel: ' + channelName);
+        });
+
+        // Debug: Log subscription error
+        channel.bind('pusher:subscription_error', function(status) {
+            debugLog('Error subscribing to channel: ' + status);
+        });
+
+        // Listen for game start event
+        channel.bind('game-started', function(data) {
+            debugLog('Received game-started event: ' + JSON.stringify(data));
+            // Redirect to team.html
+            window.location.href = '{% url "student_view_game" game.id %}';
+        });
         // Function to update sprite selection
         function updateSpriteSelection(sprite) {
             $.post("{% url 'update_sprite' game.id %}", {
@@ -86,30 +138,51 @@
                 $('#selected-sprite').text(sprite);
                 // Save the selected sprite to local storage
                 localStorage.setItem('selectedSprite', sprite);
+                debugLog('Sprite updated: ' + sprite);
             }).fail(function(xhr) {
+                debugLog('Error updating sprite: ' + xhr.responseJSON.message);
                 alert('Error: ' + xhr.responseJSON.message);
             });
         }
-    
+
         // Check if a sprite is already selected in local storage
         var savedSprite = localStorage.getItem('selectedSprite');
         if (savedSprite) {
             updateSpriteSelection(savedSprite);
         }
-    
+
         // Handle sprite selection
         $('.sprite-option').click(function() {
             var sprite = $(this).data('sprite');
             updateSpriteSelection(sprite);
         });
-    
+
         // Add a button to change the sprite
         $('#game-info').append('<button id="change-sprite">Change Sprite</button>');
         $('#change-sprite').click(function() {
             $('#game-info').hide();
             $('#sprite-selection').show();
         });
-    });
+        pusher.connection.bind('state_change', function(states) {
+            debugLog('Pusher connection state changed from '+ states.previous + ' to ' + states.current);
+        });
 
+        // Debug: Log successful connection
+        pusher.connection.bind('connected', function() {
+            debugLog('Successfully connected to Pusher');
+        });
+
+        // Debug: Log connection errors
+        pusher.connection.bind('error', function(err) {
+            debugLog('Pusher connection error: ' + JSON.stringify(err));
+        });
+
+        // Additional debug: Check if Pusher is defined
+        if (typeof Pusher === 'undefined') {
+            debugLog('Error: Pusher is not defined. Make sure the Pusher library is loaded correctly.');
+        } else {
+            debugLog('Pusher library is loaded successfully.');
+        }
+    });
 </script>
 {% endblock %}
