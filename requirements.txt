@@ -5,4 +5,5 @@ dj-database-url
 pydub
 sqlparse
 whitenoise
-storages
+django-storages==1.13.2
+b2sdk==1.19.0
