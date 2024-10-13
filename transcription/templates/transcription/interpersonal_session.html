@@ -235,8 +235,12 @@
 {{ transcriptions|safe }}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        
         const questions = JSON.parse('{{ questions_data|escapejs }}');
         const transcriptions = JSON.parse('{{ transcriptions|escapejs }}');
+            
+        console.log('Loaded questions:', questions);
+        console.log('Loaded transcriptions:', transcriptions);
         let currentQuestionIndex = 0;
         const questionContainer = document.getElementById('questionContainer');
         const questionText = document.getElementById('questionText');
@@ -258,21 +262,30 @@
         
         function playAudio(audioUrl) {
             return new Promise((resolve, reject) => {
-                const audio = new Audio(audioUrl);
-                audio.onended = () => {
-                    startRecording();
-                    resolve();
-                };
+                const audio = new Audio();
                 audio.onerror = (e) => {
                     console.error('Error playing audio:', e);
-                    alert('Error playing audio. Please check the console for details.');
+                    console.error('Audio source:', audioUrl);
+                    alert(`Error playing audio. Source: ${audioUrl}. Please check the console for details.`);
                     reject(e);
                 };
-                audio.play().catch(e => {
-                    console.error('Error playing audio:', e);
-                    alert('Error playing audio. Please check the console for details.');
-                    reject(e);
-                });
+                audio.onloadedmetadata = () => {
+                    console.log('Audio metadata loaded successfully');
+                };
+                audio.oncanplaythrough = () => {
+                    console.log('Audio can play through');
+                    audio.play().then(() => {
+                        console.log('Audio started playing');
+                        audio.onended = () => {
+                            console.log('Audio finished playing');
+                            resolve();
+                        };
+                    }).catch(e => {
+                        console.error('Error playing audio:', e);
+                        reject(e);
+                    });
+                };
+                audio.src = audioUrl;
             });
         }
 
@@ -398,18 +411,22 @@
             document.getElementById('siteWideLoading').style.display = 'none';
         }, 500);
     }
-    
     async function playNextQuestion() {
         if (currentQuestionIndex < questions.length) {
             const question = questions[currentQuestionIndex];
             questionText.textContent = `Question ${currentQuestionIndex + 1}`;
-
+    
+            console.log('Attempting to play audio:', question.audio_data);
+    
             try {
                 micContainer.style.display = 'block';
                 questionContainer.style.backgroundColor = '#e6f7ff';
-                await playAudio(question.audio_data);  // This is now a URL
+                await playAudio(question.audio_data);
+                console.log('Audio played successfully');
+                startRecording();
             } catch (error) {
                 console.error('Error in playNextQuestion:', error);
+                alert(`Failed to play audio for question ${currentQuestionIndex + 1}. Moving to next question.`);
                 moveToNextQuestion();
             }
         } else {

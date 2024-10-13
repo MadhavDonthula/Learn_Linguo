@@ -105,18 +105,17 @@ def interpersonal_session_details(request, session_id):
     )
     
     questions_data = []
-    transcriptions = []  # Array to hold all transcriptions
+    transcriptions = []
     for question in questions:
-        # Use the URL directly, no need to encode
-        audio_data = question.audio_file if question.audio_file else ''
+        # Ensure the audio_file URL is absolute
+        audio_data = request.build_absolute_uri(question.audio_file) if question.audio_file else ''
         
-        # Append transcription to the separate array
         transcriptions.append(question.transcription if question.transcription else 'No transcription available')
         
         questions_data.append({
             'id': question.id,
             'order': question.order,
-            'audio_data': audio_data,  # This is now a URL
+            'audio_data': audio_data,
         })
     
     logger.info(f"Prepared {len(questions_data)} questions for session {session_id}")
