@@ -229,49 +229,52 @@
 
 <div id="siteWideLoading" class="site-wide-loading" style="display: none;">
     <div class="loading-spinner"></div>
-</div>{{ questions_data|json_script:"questionsData" }}
+</div>
+
+{{ questions_data|safe }}
+{{ transcriptions|safe }}
 <script>
-    const questions = JSON.parse(document.getElementById('questionsData').textContent);
-    let currentQuestionIndex = 0;
-    const questionContainer = document.getElementById('questionContainer');
-    const questionText = document.getElementById('questionText');
-    const audioDataInput = document.getElementById('audioData');
-    const startButton = document.getElementById('startSession');
-    const micContainer = document.getElementById('micContainer');
-    const mic = document.querySelector('.mic');
-    const summary = document.getElementById('summary');
-    const summaryContent = document.getElementById('summaryContent');
-    
-    let mediaRecorder;
-    let audioChunks = [];
-    let isRecording = false;
-    let isCompleted = {{ is_completed|yesno:"true,false" }};
-    let recordingTimeout;
-    let audioBlob;
-    let allResponses = [];
-    const totalQuestions = questions.length;
-    
-    const transcriptions = JSON.parse(document.getElementById('transcriptionsData').textContent);
-    
-    function playAudio(audioUrl) {
-        return new Promise((resolve, reject) => {
-            const audio = new Audio(audioUrl);
-            audio.onended = () => {
-                startRecording();
-                resolve();
-            };
-            audio.onerror = (e) => {
-                console.error('Error playing audio:', e);
-                alert('Error playing audio. Please check the console for details.');
-                reject(e);
-            };
-            audio.play().catch(e => {
-                console.error('Error playing audio:', e);
-                alert('Error playing audio. Please check the console for details.');
-                reject(e);
+    document.addEventListener('DOMContentLoaded', function() {
+        const questions = JSON.parse('{{ questions_data|escapejs }}');
+        const transcriptions = JSON.parse('{{ transcriptions|escapejs }}');
+        let currentQuestionIndex = 0;
+        const questionContainer = document.getElementById('questionContainer');
+        const questionText = document.getElementById('questionText');
+        const audioDataInput = document.getElementById('audioData');
+        const startButton = document.getElementById('startSession');
+        const micContainer = document.getElementById('micContainer');
+        const mic = document.querySelector('.mic');
+        const summary = document.getElementById('summary');
+        const summaryContent = document.getElementById('summaryContent');
+        
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let isCompleted = {{ is_completed|yesno:"true,false" }};
+        let recordingTimeout;
+        let audioBlob;
+        let allResponses = [];
+        const totalQuestions = questions.length;
+        
+        function playAudio(audioUrl) {
+            return new Promise((resolve, reject) => {
+                const audio = new Audio(audioUrl);
+                audio.onended = () => {
+                    startRecording();
+                    resolve();
+                };
+                audio.onerror = (e) => {
+                    console.error('Error playing audio:', e);
+                    alert('Error playing audio. Please check the console for details.');
+                    reject(e);
+                };
+                audio.play().catch(e => {
+                    console.error('Error playing audio:', e);
+                    alert('Error playing audio. Please check the console for details.');
+                    reject(e);
+                });
             });
-        });
-    }
+        }
 
     async function startRecording() {
         try {
@@ -404,7 +407,7 @@
             try {
                 micContainer.style.display = 'block';
                 questionContainer.style.backgroundColor = '#e6f7ff';
-                await playAudio(question.audio_data);
+                await playAudio(question.audio_data);  // This is now a URL
             } catch (error) {
                 console.error('Error in playNextQuestion:', error);
                 moveToNextQuestion();
@@ -465,12 +468,11 @@
         }
     });
     
-    window.addEventListener('load', () => {
-        if (isCompleted) {
-            completeSession();
-        } else {
-            startButton.style.display = 'block';
-        }
-    });
+    if (isCompleted) {
+        completeSession();
+    } else {
+        startButton.style.display = 'block';
+    }
+});
 </script>
 {% endblock %}

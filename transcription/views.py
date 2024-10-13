@@ -99,23 +99,33 @@ logger = logging.getLogger(__name__)
 def interpersonal_session_details(request, session_id):
     session = get_object_or_404(InterpersonalSession, id=session_id)
     questions = session.questions.all().order_by('order')
+    user_progress, created = UserInterpersonalProgress.objects.get_or_create(
+        user=request.user,
+        session=session
+    )
     
     questions_data = []
-    transcriptions = {}
+    transcriptions = []  # Array to hold all transcriptions
     for question in questions:
+        # Use the URL directly, no need to encode
+        audio_data = question.audio_file if question.audio_file else ''
+        
+        # Append transcription to the separate array
+        transcriptions.append(question.transcription if question.transcription else 'No transcription available')
+        
         questions_data.append({
             'id': question.id,
             'order': question.order,
-            'audio_data': request.build_absolute_uri(question.audio_file),  # Use full URL
-            'transcription': question.transcription,
+            'audio_data': audio_data,  # This is now a URL
         })
-        transcriptions[question.id] = question.transcription
+    
+    logger.info(f"Prepared {len(questions_data)} questions for session {session_id}")
     
     context = {
         'session': session,
         'questions_data': json.dumps(questions_data, cls=DjangoJSONEncoder),
         'transcriptions': json.dumps(transcriptions, cls=DjangoJSONEncoder),
-        'is_completed': UserInterpersonalProgress.objects.filter(user=request.user, session=session, has_completed=True).exists(),
+        'is_completed': user_progress.has_completed,
     }
     
     return render(request, 'transcription/interpersonal_session.html', context)
