@@ -120,12 +120,10 @@
 
     <script>
         let questionCount = 0;
-        let mediaRecorder;
-        let audioChunks = [];
-
+    
         document.getElementById('add-question').addEventListener('click', addQuestion);
         document.getElementById('interpersonal-form').addEventListener('submit', submitForm);
-
+    
         function addQuestion() {
             questionCount++;
             const template = document.getElementById('question-template');
@@ -139,49 +137,56 @@
             const audioData = questionItem.querySelector('.audio-data');
             const deleteButton = questionItem.querySelector('.delete-question');
             
-            startRecording.addEventListener('click', () => startRecordingAudio(startRecording, stopRecording));
-            stopRecording.addEventListener('click', () => stopRecordingAudio(audioPreview, audioData, stopRecording, startRecording));
+            startRecording.addEventListener('click', () => startRecordingAudio(startRecording, stopRecording, audioPreview, audioData));
             deleteButton.addEventListener('click', deleteQuestion);
             
             document.getElementById('questions-container').appendChild(questionItem);
         }
-        function startRecordingAudio(startBtn, stopBtn) {
+    
+        function startRecordingAudio(startBtn, stopBtn, audioPreview, audioData) {
             navigator.mediaDevices.getUserMedia({ audio: true })
                 .then(stream => {
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    audioChunks = [];
+                    const mediaRecorder = new MediaRecorder(stream);
+                    let audioChunks = [];
+        
                     mediaRecorder.addEventListener("dataavailable", event => {
                         audioChunks.push(event.data);
                     });
+        
+                    mediaRecorder.addEventListener("stop", () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = function() {
+                            const base64Audio = reader.result;
+                            if (audioPreview) {
+                                audioPreview.src = base64Audio;
+                                audioPreview.style.display = 'block';
+                            }
+                            if (audioData) {
+                                audioData.value = base64Audio;
+                            }
+                        }
+                    });
+        
+                    mediaRecorder.start();
                     startBtn.style.display = 'none';
                     stopBtn.style.display = 'inline-block';
                     startBtn.classList.add('recording');
+        
+                    stopBtn.onclick = () => {
+                        mediaRecorder.stop();
+                        stream.getTracks().forEach(track => track.stop());
+                        stopBtn.style.display = 'none';
+                        startBtn.style.display = 'inline-block';
+                        startBtn.classList.remove('recording');
+                        startBtn.textContent = 'Restart Recording';
+                        startBtn.classList.remove('bg-red-500');
+                        startBtn.classList.add('restart-recording');
+                    };
                 });
         }
-
-        function stopRecordingAudio(audioPreview, audioData, stopBtn, startBtn) {
-            mediaRecorder.stop();
-            mediaRecorder.addEventListener("stop", () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                const audioUrl = URL.createObjectURL(audioBlob);
-                audioPreview.src = audioUrl;
-                audioPreview.style.display = 'block';
-                
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = function() {
-                    audioData.value = reader.result;
-                }
-            });
-            stopBtn.style.display = 'none';
-            startBtn.style.display = 'inline-block';
-            startBtn.classList.remove('recording');
-            startBtn.textContent = 'Restart Recording';
-            startBtn.classList.remove('bg-red-500');
-            startBtn.classList.add('restart-recording');
-        }
-
+    
         function deleteQuestion(e) {
             const questionItem = e.target.closest('.question-item');
             const questionsContainer = document.getElementById('questions-container');
@@ -193,13 +198,13 @@
                 alert("You cannot delete the last question. Every session must have at least one question.");
             }
         }
-
+    
         function updateQuestionNumbers() {
             document.querySelectorAll('.question-item').forEach((item, index) => {
                 item.querySelector('.question-number').textContent = index + 1;
             });
         }
-
+    
         function submitForm(e) {
             e.preventDefault();
             const formData = {
@@ -208,7 +213,7 @@
                 language: document.getElementById('language').value,
                 questions: []
             };
-
+        
             document.querySelectorAll('.question-item').forEach((item, index) => {
                 formData.questions.push({
                     order: index + 1,
@@ -216,7 +221,7 @@
                     transcription: item.querySelector('.transcription').value
                 });
             });
-
+        
             fetch("{% url 'add_interpersonal' %}", {
                 method: 'POST',
                 headers: {
@@ -238,7 +243,7 @@
                 alert(`An error occurred while saving the session: ${error.message}`);
             });
         }
-
+    
         function showSuccessPopup(classCode) {
             const popup = document.getElementById('successPopup');
             const message = document.getElementById('popupMessage');
@@ -246,13 +251,13 @@
             popup.style.display = 'block';
             popup.classList.add('fade-in');
         }
-
+    
         function closePopup() {
             const popup = document.getElementById('successPopup');
             popup.style.display = 'none';
             window.location.href = "{% url 'interpersonal' %}";
         }
-
+    
         // Add the first question by default
         addQuestion();
     </script>

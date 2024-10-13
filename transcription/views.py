@@ -628,129 +628,121 @@ from django.http import JsonResponse
 from django.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
-@require_http_methods(["POST"])
-def add_interpersonal(request):
-    try:
-        data = json.loads(request.body)
-        title = data.get('title')
-        class_code = data.get('class_code')
-        language = data.get('language')
-        questions = data.get('questions', [])
-
-        logger.info(f"Received data: title={title}, class_code={class_code}, language={language}, num_questions={len(questions)}")
-
-        if not all([title, class_code, language, questions]):
-            raise ValidationError("Missing required fields")
-
-        # Validate class code format
-        if not re.match(r'^[A-Z0-9]{5}$', class_code):
-            raise ValidationError("Invalid class code format")
-
-        # Get the ClassCode instance
-        try:
-            class_code_obj = ClassCode.objects.get(code=class_code)
-        except ClassCode.DoesNotExist:
-            raise ValidationError(f"ClassCode '{class_code}' does not exist")
-
-        # Create and save the InterpersonalSession
-        session = InterpersonalSession(title=title, class_code=class_code_obj, language=language)
-        session.full_clean()  # Validate the model
-        session.save()
-
-        logger.info(f"Created InterpersonalSession: {session.id}")
-
-        # Create InterpersonalQuestion instances
-        for question_data in questions:
-            order = question_data.get('order')
-            audio_data = question_data.get('audio_data')
-            transcription = question_data.get('transcription', '')
-
-            if not audio_data:
-                raise ValidationError(f"Missing audio data for question {order}")
-
-            try:
-                format, audio_str = audio_data.split(';base64,')
-                ext = format.split('/')[-1]  # Get the file extension
-                audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{order}.{ext}')
-            except Exception as e:
-                logger.error(f"Error processing audio data for question {order}: {str(e)}")
-                raise ValidationError(f"Invalid audio data format for question {order}")
-
-            question = InterpersonalQuestion(
-                session=session,
-                order=order,
-                audio_file=audio_file,
-                transcription=transcription
-            )
-            question.full_clean()  # Validate the model
-            question.save()
-
-        logger.info(f"Created {len(questions)} InterpersonalQuestions for session: {session.id}")
-
-        return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
-
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON Decode Error: {str(e)}")
-        return JsonResponse({'status': 'error', 'message': 'Invalid JSON data'}, status=400)
-    except ValidationError as e:
-        logger.error(f"Validation Error: {str(e)}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
-    except Exception as e:
-        logger.error(f"Unexpected Error: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return JsonResponse({'status': 'error', 'message': f'An unexpected error occurred: {str(e)}'}, status=500)
-
+@login_required
 @require_http_methods(["GET", "POST"])
-def edit_interpersonal(request, session_id):
-    session = get_object_or_404(InterpersonalSession, id=session_id)
-    class_codes = ClassCode.objects.all()
-
+def add_interpersonal(request):
     if request.method == "GET":
-        return render(request, 'transcription/edit_interpersonal.html', {'session': session, "class_codes": class_codes})
-    
+        class_codes = ClassCode.objects.all()
+        return render(request, 'transcription/create_interpersonal.html', {'class_codes': class_codes})
+
     elif request.method == "POST":
         try:
             data = json.loads(request.body)
-            logger.info(f"Received data: {data}")
-            
-            # Log each field separately
-            logger.info(f"Title: {data.get('title')}")
-            logger.info(f"Class code: {data.get('class_code')}")
-            logger.info(f"Language: {data.get('language')}")
-            logger.info(f"Questions: {data.get('questions')}")
-            
+            title = data.get('title')
+            class_code = data.get('class_code')
+            language = data.get('language')
+            questions = data.get('questions', [])
+
+            if not all([title, class_code, language, questions]):
+                return JsonResponse({'status': 'error', 'message': 'Missing required fields'}, status=400)
+
+            class_code_obj = get_object_or_404(ClassCode, code=class_code)
+
+            session = InterpersonalSession.objects.create(
+                title=title,
+                class_code=class_code_obj,
+                language=language
+            )
+
+            for question_data in questions:
+                audio_data = question_data.get('audio_data')
+                if not audio_data:
+                    return JsonResponse({'status': 'error', 'message': f"Missing audio data for question {question_data.get('order')}"}, status=400)
+
+                # Process the base64 audio data
+                if audio_data.startswith('data:audio'):
+                    format, audio_str = audio_data.split(';base64,')
+                    ext = format.split('/')[-1]
+                    audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question_data.get("order")}.{ext}')
+                else:
+                    return JsonResponse({'status': 'error', 'message': f"Invalid audio data format for question {question_data.get('order')}"}, status=400)
+
+                InterpersonalQuestion.objects.create(
+                    session=session,
+                    order=question_data.get('order'),
+                    audio_file=audio_file,
+                    transcription=question_data.get('transcription', '')
+                )
+
+            return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
+
+        except Exception as e:
+            logger.error(f"Error in add_interpersonal: {str(e)}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def edit_interpersonal(request, session_id):
+    session = get_object_or_404(InterpersonalSession, id=session_id)
+
+    if request.method == "GET":
+        class_codes = ClassCode.objects.all()
+        questions = session.questions.all().order_by('order')
+        questions_data = []
+        for question in questions:
+            questions_data.append({
+                'id': question.id,
+                'order': question.order,
+                'transcription': question.transcription,
+                'audio_url': question.audio_file.url if question.audio_file else None,
+            })
+        context = {
+            'session': session,
+            'class_codes': class_codes,
+            'questions': questions_data,
+        }
+        return render(request, 'transcription/edit_interpersonal.html', context)
+
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
             session.title = data.get('title')
             session.class_code = get_object_or_404(ClassCode, code=data.get('class_code'))
             session.language = data.get('language')
             session.save()
-            
+
+            existing_question_ids = set(session.questions.values_list('id', flat=True))
+            updated_question_ids = set()
+
             for question_data in data.get('questions', []):
-                question = session.questions.get(id=question_data['id'])
-                question.transcription = question_data.get('transcription')
+                question_id = question_data.get('id')
+                if question_id:
+                    question = session.questions.get(id=question_id)
+                    updated_question_ids.add(question_id)
+                else:
+                    question = InterpersonalQuestion(session=session)
                 
+                question.order = question_data.get('order')
+                question.transcription = question_data.get('transcription', '')
+
                 audio_data = question_data.get('audio_data')
-                if audio_data:
-                    if audio_data.startswith('data:audio'):
-                        # This is a new recording
-                        format, audio_str = audio_data.split(';base64,')
-                        ext = format.split('/')[-1]
-                        audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question.order}.{ext}')
-                        question.audio_file = audio_file
-                    else:
-                        # This is an existing file, no need to update
-                        pass
-                
+                if audio_data and audio_data.startswith('data:audio'):
+                    format, audio_str = audio_data.split(';base64,')
+                    ext = format.split('/')[-1]
+                    audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question.order}.{ext}')
+                    question.audio_file = audio_file
+
                 question.save()
-            
+
+            # Delete questions that weren't updated
+            questions_to_delete = existing_question_ids - updated_question_ids
+            InterpersonalQuestion.objects.filter(id__in=questions_to_delete).delete()
+
             return JsonResponse({'status': 'success', 'message': 'Session updated successfully'})
-        except json.JSONDecodeError:
-            logger.error("Failed to parse JSON data")
-            return JsonResponse({'status': 'error', 'message': 'Invalid JSON data'}, status=400)
+
         except Exception as e:
-            logger.exception("Error in edit_interpersonal view")
+            logger.error(f"Error in edit_interpersonal: {str(e)}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-        
 from .models import InterpersonalSession, UserInterpersonalProgress
 
 
