@@ -181,19 +181,9 @@ class InterpersonalSession(models.Model):
         return self.title
 class InterpersonalQuestion(models.Model):
     session = models.ForeignKey(InterpersonalSession, on_delete=models.CASCADE, related_name='questions')
-    audio_file = models.FileField(upload_to='interpersonal_questions/', blank=True, null=True)
+    audio_file = models.URLField(max_length=500)  # Changed to URLField
     order = models.PositiveIntegerField()
     transcription = models.TextField(blank=True)
-
-    def save(self, *args, **kwargs):
-        if self.audio_file and hasattr(self.audio_file, 'read'):
-            audio_content = self.audio_file.read()
-            if isinstance(audio_content, str) and audio_content.startswith('data:audio'):
-                format, audio_str = audio_content.split(';base64,')
-                ext = format.split('/')[-1]  # Get the file extension (e.g., wav)
-                audio_data = base64.b64decode(audio_str)
-                self.audio_file.save(f'question_{self.order}.{ext}', ContentFile(audio_data), save=False)
-        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['order']

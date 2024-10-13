@@ -7,3 +7,4 @@ sqlparse
 whitenoise
 django-storages==1.13.2
 b2sdk==1.19.0
+boto3

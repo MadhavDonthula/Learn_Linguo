@@ -623,26 +623,27 @@ def create_interpersonal_view(request):
         'class_codes': class_codes,
     }
     return render(request, 'transcription/create_interpersonal.html', context)
-from django.core.files.base import ContentFile
 import json
 import base64
+import boto3
+from botocore.exceptions import ClientError
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.conf import settings
 from .models import ClassCode, InterpersonalSession, InterpersonalQuestion
 import logging
-from b2sdk.v2 import InMemoryAccountInfo, B2Api
 from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
-# Initialize B2 API
-info = InMemoryAccountInfo()
-b2_api = B2Api(info)
-b2_api.authorize_account("production", application_key_id=settings.AWS_ACCESS_KEY_ID, application_key=settings.AWS_SECRET_ACCESS_KEY)
-
-# Get the B2 bucket
-b2_bucket = b2_api.get_bucket_by_name(settings.AWS_STORAGE_BUCKET_NAME)
+# Initialize S3 client
+s3_client = boto3.client(
+    's3',
+    endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+    region_name=settings.AWS_S3_REGION_NAME
+)
 
 def add_interpersonal(request):
     if request.method == "GET":
@@ -681,11 +682,16 @@ def add_interpersonal(request):
 
                     # Upload to B2
                     file_name = f'interpersonal_questions/question_{session.id}_{question_data.get("order")}.{ext}'
-                    file_info = b2_bucket.upload_bytes(
-                        data_bytes=audio_bytes,
-                        file_name=file_name,
-                        content_type=f'audio/{ext}'
-                    )
+                    try:
+                        s3_client.upload_fileobj(
+                            BytesIO(audio_bytes),
+                            settings.AWS_STORAGE_BUCKET_NAME,
+                            file_name,
+                            ExtraArgs={'ContentType': f'audio/{ext}'}
+                        )
+                    except ClientError as e:
+                        logger.error(f"Error uploading file to B2: {str(e)}")
+                        return JsonResponse({'status': 'error', 'message': 'Failed to upload audio file'}, status=500)
 
                     # Create the InterpersonalQuestion object
                     question = InterpersonalQuestion.objects.create(
