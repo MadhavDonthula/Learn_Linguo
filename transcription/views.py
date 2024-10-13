@@ -627,9 +627,12 @@ import traceback
 from django.http import JsonResponse
 from django.core.exceptions import ValidationError
 logger = logging.getLogger(__name__)
-
+import os
+import tempfile
 @login_required
 @require_http_methods(["GET", "POST"])
+
+
 def add_interpersonal(request):
     if request.method == "GET":
         class_codes = ClassCode.objects.all()
@@ -643,58 +646,47 @@ def add_interpersonal(request):
             language = data.get('language')
             questions = data.get('questions', [])
 
-            # Check if all required fields are present
             if not all([title, class_code, language, questions]):
                 return JsonResponse({'status': 'error', 'message': 'Missing required fields'}, status=400)
 
-            # Get class code object or return 404
             class_code_obj = get_object_or_404(ClassCode, code=class_code)
 
-            # Create the InterpersonalSession object
             session = InterpersonalSession.objects.create(
                 title=title,
                 class_code=class_code_obj,
                 language=language
             )
 
-            # Process each question
             for question_data in questions:
                 audio_data = question_data.get('audio_data')
                 if not audio_data:
                     return JsonResponse({'status': 'error', 'message': f"Missing audio data for question {question_data.get('order')}"}, status=400)
 
-                # Check if audio data is base64 and process it
+                # Process the base64 audio data
                 if audio_data.startswith('data:audio'):
-                    try:
-                        format, audio_str = audio_data.split(';base64,')
-                        ext = format.split('/')[-1]
+                    format, audio_str = audio_data.split(';base64,')
+                    ext = format.split('/')[-1]
+                    
+                    # Use /tmp for temporary storage
+                    temp_audio_file_path = os.path.join(tempfile.gettempdir(), f'question_{question_data.get("order")}.{ext}')
+                    
+                    with open(temp_audio_file_path, 'wb') as audio_file:
+                        audio_file.write(base64.b64decode(audio_str))
 
-                        # Decode base64 data and save it directly to a ContentFile in memory
-                        audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question_data.get("order")}.{ext}')
-                        
-                        # Create InterpersonalQuestion object
+                    # Now save to your database or move the file to a permanent storage solution
+                    with open(temp_audio_file_path, 'rb') as audio_file_obj:
                         InterpersonalQuestion.objects.create(
                             session=session,
                             order=question_data.get('order'),
-                            audio_file=audio_file,
+                            audio_file=audio_file_obj,
                             transcription=question_data.get('transcription', '')
                         )
-                    except (ValueError, IndexError) as e:
-                        return JsonResponse({'status': 'error', 'message': f"Invalid audio data format for question {question_data.get('order')}"}, status=400)
-                else:
-                    return JsonResponse({'status': 'error', 'message': f"Invalid audio data format for question {question_data.get('order')}"}, status=400)
 
             return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
 
-        except json.JSONDecodeError:
-            return JsonResponse({'status': 'error', 'message': 'Invalid JSON format'}, status=400)
-
-        except ClassCode.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'Class code not found'}, status=404)
-
         except Exception as e:
             logger.error(f"Error in add_interpersonal: {str(e)}")
-            return JsonResponse({'status': 'error', 'message': 'An unexpected error occurred. Please try again later.'}, status=500)
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
 @require_http_methods(["GET", "POST"])
