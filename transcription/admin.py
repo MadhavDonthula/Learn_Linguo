@@ -281,11 +281,18 @@ class InterpersonalSessionAdmin(admin.ModelAdmin):
 
     def view_interpersonal_sessions(self, request):
         sessions = InterpersonalSession.objects.all()
-
         return render(request, 'transcription/interpersonal.html', {'sessions': sessions})
 
     def get_actions(self, request):
         actions = super().get_actions(request)
-        if 'delete_selected' in actions:
-            del actions['delete_selected']
+        actions['delete_selected'] = (
+            self.delete_selected,
+            'delete_selected',
+            'Delete selected sessions'
+        )
         return actions
+
+    def delete_selected(self, modeladmin, request, queryset):
+        for obj in queryset:
+            obj.delete()
+    delete_selected.short_description = "Delete selected sessions"
