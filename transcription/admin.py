@@ -242,14 +242,16 @@ from django.http import HttpResponseRedirect  # Import this
 
 class InterpersonalQuestionInline(admin.TabularInline):
     model = InterpersonalQuestion
-    extra = 0
-    can_delete = False
-    readonly_fields = ('order', 'audio_file', 'transcription')
-    max_num = 0
+    extra = 1
+    fields = ('order', 'audio_file', 'transcription')
+    readonly_fields = ('order',)  # Only make 'order' readonly
 
-    def has_add_permission(self, request, obj):
-        return False
-@admin.register(InterpersonalSession)
+class InterpersonalSessionAdmin(admin.ModelAdmin):
+    inlines = [InterpersonalQuestionInline]
+    list_display = ('title', 'created_at', 'language', 'class_code')
+    search_fields = ('title', 'class_code__code')
+
+admin.site.register(InterpersonalSession, InterpersonalSessionAdmin)
 class InterpersonalSessionAdmin(admin.ModelAdmin):
     list_display = ('title', 'created_at', 'language', 'class_code', 'view_sessions_link')
     list_filter = ('language', 'class_code')

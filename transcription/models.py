@@ -183,7 +183,7 @@ class InterpersonalQuestion(models.Model):
     session = models.ForeignKey(InterpersonalSession, on_delete=models.CASCADE, related_name='questions')
     audio_file = models.FileField(upload_to='interpersonal_questions/', blank=True, null=True)
     order = models.PositiveIntegerField()
-    transcription = models.TextField(blank=True, help_text="Transcription of the audio question")
+    transcription = models.TextField(blank=True)
 
     def save(self, *args, **kwargs):
         if self.audio_file and hasattr(self.audio_file, 'read'):
@@ -194,12 +194,12 @@ class InterpersonalQuestion(models.Model):
                 audio_data = base64.b64decode(audio_str)
                 self.audio_file.save(f'question_{self.order}.{ext}', ContentFile(audio_data), save=False)
         super().save(*args, **kwargs)
+
     class Meta:
         ordering = ['order']
 
     def __str__(self):
         return f"Question {self.order} for {self.session.title}"
-
 
 
 class UserInterpersonalProgress(models.Model):
