@@ -12,6 +12,8 @@ import string
 import re
 from difflib import SequenceMatcher
 from django.views.decorators.http import require_http_methods
+from django.core.files import File
+
 import logging
 
 
@@ -667,20 +669,27 @@ def add_interpersonal(request):
                     format, audio_str = audio_data.split(';base64,')
                     ext = format.split('/')[-1]
                     
-                    # Use /tmp for temporary storage
-                    temp_audio_file_path = os.path.join(tempfile.gettempdir(), f'question_{question_data.get("order")}.{ext}')
-                    
-                    with open(temp_audio_file_path, 'wb') as audio_file:
-                        audio_file.write(base64.b64decode(audio_str))
+                    # Create a named temporary file
+                    with NamedTemporaryFile(delete=False, suffix=f'.{ext}') as temp_file:
+                        temp_file.write(base64.b64decode(audio_str))
+                        temp_file_path = temp_file.name
 
-                    # Now save to your database or move the file to a permanent storage solution
-                    with open(temp_audio_file_path, 'rb') as audio_file_obj:
-                        InterpersonalQuestion.objects.create(
+                    # Open the temporary file and create a Django File object
+                    with open(temp_file_path, 'rb') as f:
+                        django_file = File(f)
+                        
+                        # Create the InterpersonalQuestion object
+                        question = InterpersonalQuestion.objects.create(
                             session=session,
                             order=question_data.get('order'),
-                            audio_file=audio_file_obj,
                             transcription=question_data.get('transcription', '')
                         )
+                        
+                        # Save the audio file
+                        question.audio_file.save(f'question_{question.id}.{ext}', django_file, save=True)
+
+                    # Clean up the temporary file
+                    os.unlink(temp_file_path)
 
             return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
 
