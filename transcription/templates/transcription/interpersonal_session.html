@@ -273,7 +273,6 @@
         });
     }
 
-
     async function startRecording() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -320,6 +319,7 @@
             submitAudioResponse(base64AudioData);
         };
     }
+
     function submitAudioResponse(base64AudioData) {
         console.log("Submitting audio response");
         document.getElementById("audio_data").value = base64AudioData;
@@ -332,7 +332,7 @@
     
         fetch("{% url 'save_interpersonal_audio' %}", {
             method: 'POST',
-            body: formData,
+            body: formData
         })
         .then(response => {
             if (!response.ok) {
@@ -393,7 +393,7 @@
             summary.style.display = 'block';
             document.getElementById('mainContainer').classList.add('summary-active');
             document.getElementById('siteWideLoading').style.display = 'none';
-        }, 500); // Simulating a delay for summary generation
+        }, 500);
     }
     
     async function playNextQuestion() {
@@ -404,8 +404,7 @@
             try {
                 micContainer.style.display = 'block';
                 questionContainer.style.backgroundColor = '#e6f7ff';
-                await playAudio(question.audio_data);  // Now using the URL directly
-                // Recording starts automatically after audio ends (in playAudio function)
+                await playAudio(question.audio_data);
             } catch (error) {
                 console.error('Error in playNextQuestion:', error);
                 moveToNextQuestion();
@@ -414,6 +413,7 @@
             completeSession();
         }
     }
+
     function moveToNextQuestion() {
         currentQuestionIndex++;
         if (currentQuestionIndex < questions.length) {
@@ -456,7 +456,6 @@
         startButton.style.display = 'none';
         playNextQuestion();
     });
-    
     
     mic.addEventListener('click', () => {
         if (isRecording) {
