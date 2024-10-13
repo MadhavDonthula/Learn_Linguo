@@ -624,15 +624,26 @@ def create_interpersonal_view(request):
     }
     return render(request, 'transcription/create_interpersonal.html', context)
 from django.core.files.base import ContentFile
-
-import traceback
+import json
+import base64
 from django.http import JsonResponse
-from django.core.exceptions import ValidationError
+from django.shortcuts import render, get_object_or_404
+from django.conf import settings
+from .models import ClassCode, InterpersonalSession, InterpersonalQuestion
+import logging
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
+from io import BytesIO
+
 logger = logging.getLogger(__name__)
-import os
-import tempfile
-@login_required
-@require_http_methods(["GET", "POST"])
+
+# Initialize B2 API
+info = InMemoryAccountInfo()
+b2_api = B2Api(info)
+b2_api.authorize_account("production", application_key_id=settings.AWS_ACCESS_KEY_ID, application_key=settings.AWS_SECRET_ACCESS_KEY)
+
+# Get the B2 bucket
+b2_bucket = b2_api.get_bucket_by_name(settings.AWS_STORAGE_BUCKET_NAME)
+
 def add_interpersonal(request):
     if request.method == "GET":
         class_codes = ClassCode.objects.all()
@@ -666,15 +677,23 @@ def add_interpersonal(request):
                 if audio_data.startswith('data:audio'):
                     format, audio_str = audio_data.split(';base64,')
                     ext = format.split('/')[-1]
-                    audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question_data.get("order")}.{ext}')
+                    audio_bytes = base64.b64decode(audio_str)
 
-                    # Create the InterpersonalQuestion object and save the audio file
+                    # Upload to B2
+                    file_name = f'interpersonal_questions/question_{session.id}_{question_data.get("order")}.{ext}'
+                    file_info = b2_bucket.upload_bytes(
+                        data_bytes=audio_bytes,
+                        file_name=file_name,
+                        content_type=f'audio/{ext}'
+                    )
+
+                    # Create the InterpersonalQuestion object
                     question = InterpersonalQuestion.objects.create(
                         session=session,
                         order=question_data.get('order'),
-                        transcription=question_data.get('transcription', '')
+                        transcription=question_data.get('transcription', ''),
+                        audio_file=f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
                     )
-                    question.audio_file.save(f'question_{question.id}.{ext}', audio_file)
 
             return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
 
