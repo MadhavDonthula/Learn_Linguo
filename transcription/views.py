@@ -683,15 +683,20 @@ def add_interpersonal(request):
                     # Upload to B2
                     file_name = f'interpersonal_questions/question_{session.id}_{question_data.get("order")}.{ext}'
                     try:
+                        logger.info(f"Attempting to upload file: {file_name}")
                         s3_client.upload_fileobj(
                             BytesIO(audio_bytes),
                             settings.AWS_STORAGE_BUCKET_NAME,
                             file_name,
                             ExtraArgs={'ContentType': f'audio/{ext}'}
                         )
+                        logger.info(f"Successfully uploaded file: {file_name}")
                     except ClientError as e:
-                        logger.error(f"Error uploading file to B2: {str(e)}")
-                        return JsonResponse({'status': 'error', 'message': 'Failed to upload audio file'}, status=500)
+                        logger.error(f"ClientError uploading file to B2: {str(e)}")
+                        return JsonResponse({'status': 'error', 'message': f'Failed to upload audio file: {str(e)}'}, status=500)
+                    except Exception as e:
+                        logger.error(f"Unexpected error uploading file to B2: {str(e)}")
+                        return JsonResponse({'status': 'error', 'message': f'Unexpected error uploading audio file: {str(e)}'}, status=500)
 
                     # Create the InterpersonalQuestion object
                     question = InterpersonalQuestion.objects.create(
