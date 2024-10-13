@@ -662,23 +662,13 @@ def add_interpersonal(request):
                 if not audio_data:
                     return JsonResponse({'status': 'error', 'message': f"Missing audio data for question {question_data.get('order')}"}, status=400)
 
-                # Process the base64 audio data
-                if audio_data.startswith('data:audio'):
-                    format, audio_str = audio_data.split(';base64,')
-                    ext = format.split('/')[-1]
-                    
-                    # Decode the base64 string
-                    decoded_audio = base64.b64decode(audio_str)
-                    
-                    # Create the InterpersonalQuestion object
-                    question = InterpersonalQuestion.objects.create(
-                        session=session,
-                        order=question_data.get('order'),
-                        transcription=question_data.get('transcription', '')
-                    )
-                    
-                    # Save the audio file using ContentFile
-                    question.audio_file.save(f'question_{question.id}.{ext}', ContentFile(decoded_audio), save=True)
+                # Create the InterpersonalQuestion object with the base64 audio data
+                InterpersonalQuestion.objects.create(
+                    session=session,
+                    order=question_data.get('order'),
+                    transcription=question_data.get('transcription', ''),
+                    audio_data=audio_data  # Store the base64 audio data directly
+                )
 
             return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
 
