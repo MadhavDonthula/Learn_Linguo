@@ -1,0 +1,106 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interpersonal Sessions</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#2196F3',
+                        'light-blue': '#E3F2FD',
+                        'dark-blue': '#1976D2',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(-45deg, #E3F2FD, #BBDEFB, #90CAF9, #64B5F6);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+        .session-card {
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+        .session-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        .session-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background-color: #2196F3;
+            transition: height 0.3s ease;
+        }
+        .session-card:hover::before {
+            height: 8px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <header class="bg-primary-blue bg-opacity-90 shadow-md sticky top-0 z-10">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl md:text-3xl font-bold text-white">Interpersonal Sessions</h1>
+            <a href="{% url 'create_interpersonal' %}" class="bg-white text-primary-blue hover:bg-light-blue font-bold py-2 px-4 md:px-6 rounded-full transition duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg text-sm md:text-base">
+                Add Session
+            </a>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto px-4 py-8">
+        {% if sessions %}
+            <ul class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for session in sessions %}
+                    <li class="rounded-lg overflow-hidden relative session-card">
+                        <div class="px-6 py-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-lg font-semibold text-dark-blue">
+                                    {{ session.title }}
+                                </h3>
+                                <a href="{% url 'edit_interpersonal' session.id %}" class="text-primary-blue hover:text-dark-blue">Edit</a>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-4">
+                                Class Code: {{ session.class_code }}
+                            </p>
+                            <div class="flex justify-between text-sm text-gray-500 mb-4">
+                                <span>Language: {{ session.get_language_display }}</span>
+                                <span>Questions: {{ session.questions.count }}</span>
+                            </div>
+                            <p class="text-xs text-gray-400">
+                                Created: {{ session.created_at|date:"F j, Y" }}
+                            </p>
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-center text-gray-600 mt-4 bg-white bg-opacity-80 rounded-lg p-4">No interpersonal sessions available.</p>
+        {% endif %}
+    </main>
+</body>
+</html>

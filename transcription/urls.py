@@ -21,6 +21,17 @@ urlpatterns = [
         path("update_question_progress", views.update_question_progress, name="update_question_progress"),
     path("assignment_progress_view", views.assignment_progress_view, name="assignment_progress_view"),
         path('check-class-code/<str:code>/', views.check_class_code, name='check_class_code'),
+    path('admin/transcription/interpersonalsession/view_sessions/', views.interpersonal_view, name='interpersonal'),
+    path('add_interpersonal/', views.add_interpersonal, name='add_interpersonal'),
+    path('interpersonal/create/', views.create_interpersonal_view, name='create_interpersonal'),
+        path('interpersonal/edit/<int:session_id>/', views.edit_interpersonal, name='edit_interpersonal'),
+            path('interpersonal_session/<int:session_id>/', views.interpersonal_session_details, name='interpersonal_session_details'),
+                path('save_interpersonal_audio/', views.save_interpersonal_audio, name='save_interpersonal_audio'),
+    path('update_interpersonal_progress/', views.update_interpersonal_progress, name='update_interpersonal_progress'),
+path("update_interpersonal_question_status/", views.update_interpersonal_question_status, name="update_interpersonal_question_status")
+
+
+
 
 
 

@@ -7,7 +7,8 @@
     <title>Learn Linguo - Study Dashboard</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap"
-      rel="stylesheet" />
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="{% static 'transcription/index.css' %}" />
     <style>
       #loading {
@@ -53,7 +54,7 @@
     <div id="loading">
       <div class="spinner"></div>
     </div>
-
+    
     <nav class="navbar">
       <a class="logo">Learn Linguo</a>
       <div class="user-actions">
@@ -64,41 +65,56 @@
         </form>
       </div>
     </nav>
-
-    <h2 class="section-title">Assignments</h2>
+    
+    <h2 class="section-title">Assignments and Interpersonal Sessions</h2>
     <div class="container assignments">
-      {% if assignments %} {% for assignment in assignments %}
-      <div
-        class="box"
-        onClick="window.location.href='{% url 'questions' assignment.id %}'">
-        <div class="box-header">{{ assignment.title }}</div>
-        <div class="box-content">
-          <div class="box-icon">📚</div>
-          <p>Due: {{ assignment.due_date }}</p>
+      {% if assignments or interpersonal_sessions %}
+        {% for assignment in assignments %}
+        <div
+          class="box"
+          onClick="window.location.href='{% url 'questions' assignment.id %}'">
+          <div class="box-header">{{ assignment.title }}</div>
+          <div class="box-content">
+            <div class="box-icon">📚</div>
+            <p>Due: {{ assignment.due_date }}</p>
+          </div>
         </div>
-      </div>
-      {% endfor %} {% else %}
-      <p>No assignments found for this class code.</p>
+        {% endfor %}
+        {% for session in interpersonal_sessions %}
+        <div
+          class="box"
+          onclick="window.location.href='{% url 'interpersonal_session_details' session.id %}'">
+          <div class="box-header">{{ session.title }} (Interpersonal)</div>
+          <div class="box-content">
+            <div class="box-icon">🎙️</div>
+            <p>Created: {{ session.created_at|date:"M d, Y" }}</p>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p>No assignments or interpersonal sessions found for this class code.</p>
       {% endif %}
     </div>
-
+    
     <h2 class="section-title">Flashcards</h2>
     <div class="container flashcards">
-      {% if flashcard_sets %} {% for flashcard_set in flashcard_sets %}
-      <div
-        class="box"
-        onClick="window.location.href='{% url 'flashcards' flashcard_set.id %}'">
-        <div class="box-header">{{ flashcard_set.name }}</div>
-        <div class="box-content">
-          <div class="box-icon">🗂️</div>
-          <p>{{ flashcard_set.flashcards.count }} cards</p>
+      {% if flashcard_sets %}
+        {% for flashcard_set in flashcard_sets %}
+        <div
+          class="box"
+          onClick="window.location.href='{% url 'flashcards' flashcard_set.id %}'">
+          <div class="box-header">{{ flashcard_set.name }}</div>
+          <div class="box-content">
+            <div class="box-icon">🗂️</div>
+            <p>{{ flashcard_set.flashcards.count }} cards</p>
+          </div>
         </div>
-      </div>
-      {% endfor %} {% else %}
-      <p>No flashcard sets found for this class code.</p>
+        {% endfor %}
+      {% else %}
+        <p>No flashcard sets found for this class code.</p>
       {% endif %}
     </div>
-
+    
     <script>
       window.addEventListener("load", function () {
         document.getElementById("loading").style.display = "none";

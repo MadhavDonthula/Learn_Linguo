@@ -11,10 +11,12 @@ import json
 import string
 import re
 from difflib import SequenceMatcher
+from django.views.decorators.http import require_http_methods
+import logging
 
 
 from openai import OpenAI
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts, InterpersonalSession, InterpersonalQuestion
 from .forms import CreateUserForm
 
 from django.contrib.auth.models import User
@@ -63,7 +65,14 @@ def home(request):
         class_code = request.user.class_enrollments.last().class_code
         assignments = class_code.assignments.all()
         flashcard_sets = class_code.flashcard_sets.all()
-        return render(request, 'transcription/index.html', {'assignments': assignments, 'flashcard_sets': flashcard_sets})
+        interpersonal_sessions = InterpersonalSession.objects.filter(class_code=class_code)
+
+        return render(request, 'transcription/index.html', {
+            'assignments': assignments,
+            'flashcard_sets': flashcard_sets,
+            'interpersonal_sessions': interpersonal_sessions
+        })
+
 
     if request.method == "POST":
         code = request.POST.get("class_code").upper()
@@ -78,6 +87,52 @@ def home(request):
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
     
     return render(request, 'transcription/home.html')
+from django.core.serializers.json import DjangoJSONEncoder
+
+logger = logging.getLogger(__name__)
+
+logger = logging.getLogger(__name__)
+
+@require_http_methods(["GET"])
+def interpersonal_session_details(request, session_id):
+    session = get_object_or_404(InterpersonalSession, id=session_id)
+    questions = session.questions.all().order_by('order')
+    user_progress, created = UserInterpersonalProgress.objects.get_or_create(
+        user=request.user,
+        session=session
+    )
+    
+    questions_data = []
+    transcriptions = []  # Array to hold all transcriptions
+
+    for question in questions:
+        if question.audio_file:
+            with question.audio_file.open('rb') as audio_file:
+                audio_data = base64.b64encode(audio_file.read()).decode('utf-8')
+                audio_data = f"data:audio/wav;base64,{audio_data}"
+        else:
+            audio_data = ''
+        
+        # Append transcription to the separate array
+        transcriptions.append(question.transcription if question.transcription else 'No transcription available')
+        
+        questions_data.append({
+            'id': question.id,
+            'order': question.order,
+            'audio_data': audio_data,  # Other question data
+        })
+    
+    logger.info(f"Prepared {len(questions_data)} questions for session {session_id}")
+    
+    context = {
+        'session': session,
+        'questions_data': questions_data,  # Original questions data
+        'transcriptions': transcriptions,  # Pass the transcriptions array directly
+        'is_completed': user_progress.has_completed,
+    }
+    
+    return render(request, 'transcription/interpersonal_session.html', context)
+
 
 @login_required(login_url="login")
 def index(request, assignment_id=None):
@@ -116,6 +171,8 @@ def record_audio(request, assignment_id):
     return render(request, "transcription/questions.html", context)
 
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
 def save_audio(request):
     if request.method == "POST":
         audio_data = request.POST.get('audio_data')
@@ -169,7 +226,60 @@ def save_audio(request):
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
-
+@require_POST
+def save_interpersonal_audio(request):
+    if request.method == "POST":
+        audio_data = request.POST.get('audio_data')
+        session_id = request.POST.get('session_id')
+        question_id = request.POST.get('question_id')
+        
+        if not all([audio_data, session_id, question_id]):
+            return JsonResponse({"error": "Missing audio data, session ID, or question ID"}, status=400)
+        
+        try:
+            audio_bytes = base64.b64decode(audio_data)
+            with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
+                temp_audio_file.write(audio_bytes)
+                temp_audio_file.flush()
+                
+                client = OpenAI(api_key="sk-qtvZYUkCq-UovQC1v3ZvTzMeRSHgs_8TLZOM9HO88-T3BlbkFJ2FFPiJVX_qfjtsaUKBH-GJQtz9uQsdjdGoz8jmq1cA")
+                
+                # Retrieve the session and question
+                session = get_object_or_404(InterpersonalSession, id=session_id)
+                selected_question = get_object_or_404(InterpersonalQuestion, id=question_id, session=session)
+                
+                # Use the session's language for transcription
+                transcription_language = session.language
+                
+                with open(temp_audio_file.name, "rb") as wav_file:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=wav_file,
+                        response_format="text",
+                        language=transcription_language,
+                    )
+            
+            transcribed_text = transcription.strip()
+            
+            # Perform AI evaluation
+            evaluation = get_ai_evaluation(client, selected_question.transcription, transcribed_text, session.language)
+            
+            # Parse the evaluation response
+            evaluation_lines = evaluation.split('\n')
+            score = evaluation_lines[0].split(':')[1].strip()
+            feedback = evaluation_lines[1].split(':')[1].strip()
+            
+            return JsonResponse({
+                "transcribed_text": transcribed_text,
+                "score": score,
+                "feedback": feedback,
+                "question": selected_question.transcription,
+            })
+        
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
+    return JsonResponse({"error": "Invalid request method"}, status=405)
 def get_ai_evaluation(client, question, student_answer, language):
     language_name = "French" if language == "fr" else "Spanish"
     
@@ -202,7 +312,12 @@ def get_ai_evaluation(client, question, student_answer, language):
     )
     return response.choices[0].message.content
 
-
+def update_interpersonal_question_status(request):
+    if request.method == "POST":
+        question_id = request.POST.get('question_id')
+        attempts_left = request.POST.get('attempts_left')
+        
+        question = get_object_or_404(InterpersonalQuestion)
 @login_required(login_url="login")
 def recording(request, assignment_id, question_id):
     assignment = get_object_or_404(Assignment, id=assignment_id)
@@ -495,3 +610,172 @@ def update_question_progress(request):
 def check_class_code(request, code):
     exists = ClassCode.objects.filter(code=code).exists()
     return JsonResponse({'exists': exists})
+
+def interpersonal_view(request):
+    sessions = InterpersonalSession.objects.all()
+    return render(request, 'transcription/interpersonal.html', {'sessions': sessions})
+
+def create_interpersonal_view(request):
+    class_codes = ClassCode.objects.all()
+    context = {
+        'class_codes': class_codes,
+    }
+    return render(request, 'transcription/create_interpersonal.html', context)
+from django.core.files.base import ContentFile
+
+import traceback
+from django.http import JsonResponse
+from django.core.exceptions import ValidationError
+logger = logging.getLogger(__name__)
+
+@require_http_methods(["POST"])
+def add_interpersonal(request):
+    try:
+        data = json.loads(request.body)
+        title = data.get('title')
+        class_code = data.get('class_code')
+        language = data.get('language')
+        questions = data.get('questions', [])
+
+        logger.info(f"Received data: title={title}, class_code={class_code}, language={language}, num_questions={len(questions)}")
+
+        if not all([title, class_code, language, questions]):
+            raise ValidationError("Missing required fields")
+
+        # Validate class code format
+        if not re.match(r'^[A-Z0-9]{5}$', class_code):
+            raise ValidationError("Invalid class code format")
+
+        # Get the ClassCode instance
+        try:
+            class_code_obj = ClassCode.objects.get(code=class_code)
+        except ClassCode.DoesNotExist:
+            raise ValidationError(f"ClassCode '{class_code}' does not exist")
+
+        # Create and save the InterpersonalSession
+        session = InterpersonalSession(title=title, class_code=class_code_obj, language=language)
+        session.full_clean()  # Validate the model
+        session.save()
+
+        logger.info(f"Created InterpersonalSession: {session.id}")
+
+        # Create InterpersonalQuestion instances
+        for question_data in questions:
+            order = question_data.get('order')
+            audio_data = question_data.get('audio_data')
+            transcription = question_data.get('transcription', '')
+
+            if not audio_data:
+                raise ValidationError(f"Missing audio data for question {order}")
+
+            try:
+                format, audio_str = audio_data.split(';base64,')
+                ext = format.split('/')[-1]  # Get the file extension
+                audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{order}.{ext}')
+            except Exception as e:
+                logger.error(f"Error processing audio data for question {order}: {str(e)}")
+                raise ValidationError(f"Invalid audio data format for question {order}")
+
+            question = InterpersonalQuestion(
+                session=session,
+                order=order,
+                audio_file=audio_file,
+                transcription=transcription
+            )
+            question.full_clean()  # Validate the model
+            question.save()
+
+        logger.info(f"Created {len(questions)} InterpersonalQuestions for session: {session.id}")
+
+        return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
+
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON Decode Error: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': 'Invalid JSON data'}, status=400)
+    except ValidationError as e:
+        logger.error(f"Validation Error: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    except Exception as e:
+        logger.error(f"Unexpected Error: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return JsonResponse({'status': 'error', 'message': f'An unexpected error occurred: {str(e)}'}, status=500)
+
+@require_http_methods(["GET", "POST"])
+def edit_interpersonal(request, session_id):
+    session = get_object_or_404(InterpersonalSession, id=session_id)
+    class_codes = ClassCode.objects.all()
+
+    if request.method == "GET":
+        return render(request, 'transcription/edit_interpersonal.html', {'session': session, "class_codes": class_codes})
+    
+    elif request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            logger.info(f"Received data: {data}")
+            
+            # Log each field separately
+            logger.info(f"Title: {data.get('title')}")
+            logger.info(f"Class code: {data.get('class_code')}")
+            logger.info(f"Language: {data.get('language')}")
+            logger.info(f"Questions: {data.get('questions')}")
+            
+            session.title = data.get('title')
+            session.class_code = get_object_or_404(ClassCode, code=data.get('class_code'))
+            session.language = data.get('language')
+            session.save()
+            
+            for question_data in data.get('questions', []):
+                question = session.questions.get(id=question_data['id'])
+                question.transcription = question_data.get('transcription')
+                
+                audio_data = question_data.get('audio_data')
+                if audio_data:
+                    if audio_data.startswith('data:audio'):
+                        # This is a new recording
+                        format, audio_str = audio_data.split(';base64,')
+                        ext = format.split('/')[-1]
+                        audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question.order}.{ext}')
+                        question.audio_file = audio_file
+                    else:
+                        # This is an existing file, no need to update
+                        pass
+                
+                question.save()
+            
+            return JsonResponse({'status': 'success', 'message': 'Session updated successfully'})
+        except json.JSONDecodeError:
+            logger.error("Failed to parse JSON data")
+            return JsonResponse({'status': 'error', 'message': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            logger.exception("Error in edit_interpersonal view")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        
+from .models import InterpersonalSession, UserInterpersonalProgress
+
+
+@login_required
+@require_POST
+def update_interpersonal_progress(request):
+    session_id = request.POST.get('session_id')
+
+    try:
+        session = InterpersonalSession.objects.get(id=session_id)
+        
+        progress, created = UserInterpersonalProgress.objects.get_or_create(
+            user=request.user,
+            session=session
+        )
+        
+        progress.has_completed = True
+        progress.save()
+
+        logger.debug(f"Updated progress for user {request.user.username}, session {session.title}: has_completed = {progress.has_completed}")
+
+        return JsonResponse({'status': 'success', 'message': 'Session completed'})
+    except InterpersonalSession.DoesNotExist:
+        logger.error(f"InterpersonalSession with id {session_id} not found")
+        return JsonResponse({'status': 'error', 'message': 'Interpersonal Session not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error updating interpersonal progress: {str(e)}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

@@ -3,7 +3,7 @@ from django.urls import path, reverse
 from django.shortcuts import render, redirect
 from django.http import Http404
 from django.utils.html import format_html
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question, UserQuestionProgress
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question, UserQuestionProgress, UserInterpersonalProgress
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.shortcuts import render, get_object_or_404
@@ -71,10 +71,8 @@ admin.site.register(ClassCode, ClassCodeAdmin)
 def class_code_progress_view(request, class_code_id):
     class_code = get_object_or_404(ClassCode, id=class_code_id)
 
-    # Initialize headers to ensure it always has a value
     headers = ['Username']
 
-    # Caching the progress data
     cache_key = f"class_progress_{class_code_id}"
     cached_data = cache.get(cache_key)
 
@@ -83,42 +81,49 @@ def class_code_progress_view(request, class_code_id):
     else:
         flashcard_sets = class_code.flashcard_sets.all()
         assignments = class_code.assignments.all()
+        interpersonal_sessions = InterpersonalSession.objects.filter(class_code=class_code)
         students = UserClassEnrollment.objects.filter(class_code=class_code).select_related('user').prefetch_related(
             'user__userflashcardprogress_set',
-            'user__userquestionprogress_set__assignment'
+            'user__userquestionprogress_set__assignment',
+            'user__userinterpersonalprogress_set__session'
         )
 
         data = []
 
-        # Populate headers
         for flashcard_set in flashcard_sets:
             headers.append(f"Flashcards: {flashcard_set.name}")
         
         for assignment in assignments:
             headers.append(f"Assignment: {assignment.title}")
 
-        # Preload progress data
+        for session in interpersonal_sessions:
+            headers.append(f"Interpersonal: {session.title}")
+
         flashcard_progresses = UserFlashcardProgress.objects.filter(user__in=[student.user for student in students], flashcard_set__in=flashcard_sets).select_related('flashcard_set')
         question_progresses = UserQuestionProgress.objects.filter(user__in=[student.user for student in students], assignment__in=assignments).select_related('assignment')
+        interpersonal_progresses = UserInterpersonalProgress.objects.filter(user__in=[student.user for student in students], session__in=interpersonal_sessions).select_related('session')
 
-        flashcard_progress_dict = { (progress.user_id, progress.flashcard_set_id): progress for progress in flashcard_progresses }
-        question_progress_dict = { (progress.user_id, progress.assignment_id): progress for progress in question_progresses }
+        flashcard_progress_dict = {(progress.user_id, progress.flashcard_set_id): progress for progress in flashcard_progresses}
+        question_progress_dict = {(progress.user_id, progress.assignment_id): progress for progress in question_progresses}
+        interpersonal_progress_dict = {(progress.user_id, progress.session_id): progress for progress in interpersonal_progresses}
 
         for student in students:
             student_progress = {'Username': student.user.username}
             
+            # Flashcard progress
             for flashcard_set in flashcard_sets:
                 progress = flashcard_progress_dict.get((student.user.id, flashcard_set.id))
                 if progress is None:
                     student_progress[f"Flashcards: {flashcard_set.name}"] = 'Not started'
                 else:
                     if progress.has_completed:
-                        student_progress[f"Flashcards: {flashcard_set.name}"] = "100%"
+                        student_progress[f"Flashcards: {flashcard_set.name}"] = "Completed"
                     elif progress.completed_percentage is not None:
                         student_progress[f"Flashcards: {flashcard_set.name}"] = f"{round(progress.completed_percentage)}%"
                     else:
                         student_progress[f"Flashcards: {flashcard_set.name}"] = 'In progress'
             
+            # Assignment progress
             for assignment in assignments:
                 progress = question_progress_dict.get((student.user.id, assignment.id))
                 if progress is None:
@@ -132,12 +137,18 @@ def class_code_progress_view(request, class_code_id):
                     else:
                         student_progress[f"Assignment: {assignment.title}"] = 'No questions'
             
+            # Interpersonal Session progress
+            for session in interpersonal_sessions:
+                progress = interpersonal_progress_dict.get((student.user.id, session.id))
+                if progress is None or not progress.has_completed:
+                    student_progress[f"Interpersonal: {session.title}"] = 'Not started'
+                else:
+                    student_progress[f"Interpersonal: {session.title}"] = 'Completed'
+            
             data.append(student_progress)
 
-        # Cache the processed data along with headers
         cache.set(cache_key, (data, headers), timeout=60 * 15)  # Cache for 15 minutes
 
-    # Pagination
     paginator = Paginator(data, 20)  # Show 20 students per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -150,7 +161,6 @@ def class_code_progress_view(request, class_code_id):
     }
 
     return render(request, 'transcription/class_code_progress.html', context)
-
 # User admin with class progress link
 class UserAdmin(BaseUserAdmin):
     def get_urls(self):
@@ -206,7 +216,76 @@ class QuestionInline(admin.TabularInline):
     extra = 1
     max_num = 6  # Set the max number of questions per assignment to 6
 
+from django import forms
+from django.contrib import admin
+from django.urls import path
+from django.shortcuts import render, redirect
+from django.http import JsonResponse
+from .models import InterpersonalSession, InterpersonalQuestion
+from django.forms import inlineformset_factory
+from .models import InterpersonalSession, InterpersonalQuestion
+from django.core.files.base import ContentFile
+import base64
+from django.utils.safestring import mark_safe
+
+
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
     fields = ('title', 'description', 'due_date','language')
+
+from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
+from django.http import HttpResponseRedirect  # Import this
+
+
+class InterpersonalQuestionInline(admin.TabularInline):
+    model = InterpersonalQuestion
+    extra = 0
+    can_delete = False
+    readonly_fields = ('order', 'audio_file', 'transcription')
+    max_num = 0
+
+    def has_add_permission(self, request, obj):
+        return False
+@admin.register(InterpersonalSession)
+class InterpersonalSessionAdmin(admin.ModelAdmin):
+    list_display = ('title', 'created_at', 'language', 'class_code', 'view_sessions_link')
+    list_filter = ('language', 'class_code')
+    search_fields = ('title', 'class_code__code')
+    readonly_fields = ('title', 'created_at', 'language', 'class_code')
+    inlines = [InterpersonalQuestionInline]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return True
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def view_sessions_link(self, obj):
+        url = reverse('admin:view_interpersonal_sessions')
+        return format_html('<a class="button" href="{}">Create Sessions</a>', url)
+    view_sessions_link.short_description = 'Create'
+    view_sessions_link.allow_tags = True
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('view_sessions/', self.admin_site.admin_view(self.view_interpersonal_sessions), name='view_interpersonal_sessions'),
+        ]
+        return custom_urls + urls
+
+    def view_interpersonal_sessions(self, request):
+        sessions = InterpersonalSession.objects.all()
+
+        return render(request, 'transcription/interpersonal.html', {'sessions': sessions})
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions

@@ -1,0 +1,260 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Interpersonal Session</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes blink {
+            0% { background-color: #EF4444; }
+            50% { background-color: #DC2626; }
+            100% { background-color: #EF4444; }
+        }
+        .recording {
+            animation: blink 1s infinite;
+        }
+        body {
+            background: linear-gradient(to bottom right, #E0F2FE, #BAE6FD);
+            min-height: 100vh;
+        }
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+            z-index: 1000;
+            overflow: hidden;
+        }
+        .popup-content {
+            padding: 2rem;
+            text-align: center;
+        }
+        .popup-header {
+            background-color: #3B82F6;
+            color: white;
+            padding: 1rem;
+            font-weight: bold;
+            font-size: 1.25rem;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-out;
+        }
+        .restart-recording {
+            background-color: #22c55e; /* Green color for the restart button */
+        }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-2xl mx-auto bg-white p-8 rounded shadow">
+        <h1 class="text-2xl font-bold mb-6">Create Interpersonal Session</h1>
+        
+        <form id="interpersonal-form" class="space-y-4">
+            <div>
+                <label for="title" class="block mb-1">Session Title:</label>
+                <input type="text" id="title" name="title" required class="w-full p-2 border rounded">
+            </div>
+            
+            <div>
+                <label for="class-code" class="block mb-1">Class Code:</label>
+                <select id="class-code" name="class_code" required class="w-full p-2 border rounded">
+                    {% for class_code in class_codes %}
+                        <option value="{{ class_code.code }}">{{ class_code.name }} ({{ class_code.code }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div>
+                <label for="language" class="block mb-1">Language:</label>
+                <select id="language" name="language" required class="w-full p-2 border rounded">
+                    <option value="fr">French</option>
+                    <option value="es">Spanish</option>
+                </select>
+            </div>
+            
+            <div id="questions-container" class="space-y-4">
+                <!-- Question templates will be added here -->
+            </div>
+            
+            <button type="button" id="add-question" class="bg-blue-500 text-white p-2 rounded">Add Another Question</button>
+            
+            <button type="submit" class="bg-green-500 text-white p-2 rounded">Save Session</button>
+        </form>
+    </div>
+    <div id="successPopup" class="popup">
+        <div class="popup-header">
+            Session Created Successfully
+        </div>
+        <div class="popup-content">
+            <p id="popupMessage" class="text-lg mb-4"></p>
+            <button onclick="closePopup()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                Close
+            </button>
+        </div>
+    </div>
+    <template id="question-template">
+        <div class="question-item border p-4 rounded relative">
+            <h3 class="font-bold mb-2">Question <span class="question-number"></span></h3>
+            <div>
+                <button type="button" class="start-recording bg-red-500 text-white p-2 rounded mb-2">Start Recording</button>
+                <button type="button" class="stop-recording bg-gray-500 text-white p-2 rounded mb-2" style="display:none;">Stop Recording</button>
+            </div>
+            <audio class="audio-preview" controls style="display:none;"></audio>
+            <input type="hidden" class="audio-data">
+            <div class="mt-2">
+                <label class="block mb-1">Transcription:</label>
+                <textarea class="transcription w-full p-2 border rounded" rows="3"></textarea>
+            </div>
+            <button type="button" class="delete-question absolute top-2 right-2 text-red-500 font-bold">X</button>
+        </div>
+    </template>
+
+    <script>
+        let questionCount = 0;
+        let mediaRecorder;
+        let audioChunks = [];
+
+        document.getElementById('add-question').addEventListener('click', addQuestion);
+        document.getElementById('interpersonal-form').addEventListener('submit', submitForm);
+
+        function addQuestion() {
+            questionCount++;
+            const template = document.getElementById('question-template');
+            const questionItem = template.content.cloneNode(true);
+            
+            questionItem.querySelector('.question-number').textContent = questionCount;
+            
+            const startRecording = questionItem.querySelector('.start-recording');
+            const stopRecording = questionItem.querySelector('.stop-recording');
+            const audioPreview = questionItem.querySelector('.audio-preview');
+            const audioData = questionItem.querySelector('.audio-data');
+            const deleteButton = questionItem.querySelector('.delete-question');
+            
+            startRecording.addEventListener('click', () => startRecordingAudio(startRecording, stopRecording));
+            stopRecording.addEventListener('click', () => stopRecordingAudio(audioPreview, audioData, stopRecording, startRecording));
+            deleteButton.addEventListener('click', deleteQuestion);
+            
+            document.getElementById('questions-container').appendChild(questionItem);
+        }
+        function startRecordingAudio(startBtn, stopBtn) {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    audioChunks = [];
+                    mediaRecorder.addEventListener("dataavailable", event => {
+                        audioChunks.push(event.data);
+                    });
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'inline-block';
+                    startBtn.classList.add('recording');
+                });
+        }
+
+        function stopRecordingAudio(audioPreview, audioData, stopBtn, startBtn) {
+            mediaRecorder.stop();
+            mediaRecorder.addEventListener("stop", () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                audioPreview.src = audioUrl;
+                audioPreview.style.display = 'block';
+                
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = function() {
+                    audioData.value = reader.result;
+                }
+            });
+            stopBtn.style.display = 'none';
+            startBtn.style.display = 'inline-block';
+            startBtn.classList.remove('recording');
+            startBtn.textContent = 'Restart Recording';
+            startBtn.classList.remove('bg-red-500');
+            startBtn.classList.add('restart-recording');
+        }
+
+        function deleteQuestion(e) {
+            const questionItem = e.target.closest('.question-item');
+            const questionsContainer = document.getElementById('questions-container');
+            
+            if (questionsContainer.children.length > 1) {
+                questionItem.remove();
+                updateQuestionNumbers();
+            } else {
+                alert("You cannot delete the last question. Every session must have at least one question.");
+            }
+        }
+
+        function updateQuestionNumbers() {
+            document.querySelectorAll('.question-item').forEach((item, index) => {
+                item.querySelector('.question-number').textContent = index + 1;
+            });
+        }
+
+        function submitForm(e) {
+            e.preventDefault();
+            const formData = {
+                title: document.getElementById('title').value,
+                class_code: document.getElementById('class-code').value,
+                language: document.getElementById('language').value,
+                questions: []
+            };
+
+            document.querySelectorAll('.question-item').forEach((item, index) => {
+                formData.questions.push({
+                    order: index + 1,
+                    audio_data: item.querySelector('.audio-data').value,
+                    transcription: item.querySelector('.transcription').value
+                });
+            });
+
+            fetch("{% url 'add_interpersonal' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    showSuccessPopup(formData.class_code);
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(`An error occurred while saving the session: ${error.message}`);
+            });
+        }
+
+        function showSuccessPopup(classCode) {
+            const popup = document.getElementById('successPopup');
+            const message = document.getElementById('popupMessage');
+            message.textContent = `Session successfully created for students in class: ${classCode}`;
+            popup.style.display = 'block';
+            popup.classList.add('fade-in');
+        }
+
+        function closePopup() {
+            const popup = document.getElementById('successPopup');
+            popup.style.display = 'none';
+            window.location.href = "{% url 'interpersonal' %}";
+        }
+
+        // Add the first question by default
+        addQuestion();
+    </script>
+</body>
+</html>
