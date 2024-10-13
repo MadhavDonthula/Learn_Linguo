@@ -253,19 +253,18 @@
     
     const transcriptions = {{ transcriptions|safe }};
     
-    function playAudio(audioData) {
+    function playAudio(audioUrl) {
         return new Promise((resolve, reject) => {
-            let audio;
-            if (audioData.startsWith('data:audio')) {
-                audio = new Audio(audioData);
-            } else {
-                audio = new Audio(audioData);
-            }
+            const audio = new Audio(audioUrl);
             audio.onended = () => {
                 startRecording();
                 resolve();
             };
-            audio.onerror = reject;
+            audio.onerror = (e) => {
+                console.error('Error playing audio:', e);
+                alert('Error playing audio. Please check the console for details.');
+                reject(e);
+            };
             audio.play().catch(e => {
                 console.error('Error playing audio:', e);
                 alert('Error playing audio. Please check the console for details.');
@@ -273,7 +272,8 @@
             });
         });
     }
-    
+
+
     async function startRecording() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -399,13 +399,12 @@
     async function playNextQuestion() {
         if (currentQuestionIndex < questions.length) {
             const question = questions[currentQuestionIndex];
-            audioDataInput.value = question.audio_data;
             questionText.textContent = `Question ${currentQuestionIndex + 1}`;
-    
+
             try {
                 micContainer.style.display = 'block';
                 questionContainer.style.backgroundColor = '#e6f7ff';
-                await playAudio(question.audio_data);
+                await playAudio(question.audio_data);  // Now using the URL directly
                 // Recording starts automatically after audio ends (in playAudio function)
             } catch (error) {
                 console.error('Error in playNextQuestion:', error);
