@@ -633,8 +633,6 @@ import os
 import tempfile
 @login_required
 @require_http_methods(["GET", "POST"])
-
-
 def add_interpersonal(request):
     if request.method == "GET":
         class_codes = ClassCode.objects.all()
@@ -669,34 +667,24 @@ def add_interpersonal(request):
                     format, audio_str = audio_data.split(';base64,')
                     ext = format.split('/')[-1]
                     
-                    # Create a named temporary file
-                    with NamedTemporaryFile(delete=False, suffix=f'.{ext}') as temp_file:
-                        temp_file.write(base64.b64decode(audio_str))
-                        temp_file_path = temp_file.name
-
-                    # Open the temporary file and create a Django File object
-                    with open(temp_file_path, 'rb') as f:
-                        django_file = File(f)
-                        
-                        # Create the InterpersonalQuestion object
-                        question = InterpersonalQuestion.objects.create(
-                            session=session,
-                            order=question_data.get('order'),
-                            transcription=question_data.get('transcription', '')
-                        )
-                        
-                        # Save the audio file
-                        question.audio_file.save(f'question_{question.id}.{ext}', django_file, save=True)
-
-                    # Clean up the temporary file
-                    os.unlink(temp_file_path)
+                    # Decode the base64 string
+                    decoded_audio = base64.b64decode(audio_str)
+                    
+                    # Create the InterpersonalQuestion object
+                    question = InterpersonalQuestion.objects.create(
+                        session=session,
+                        order=question_data.get('order'),
+                        transcription=question_data.get('transcription', '')
+                    )
+                    
+                    # Save the audio file using ContentFile
+                    question.audio_file.save(f'question_{question.id}.{ext}', ContentFile(decoded_audio), save=True)
 
             return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
 
         except Exception as e:
             logger.error(f"Error in add_interpersonal: {str(e)}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
 @login_required
 @require_http_methods(["GET", "POST"])
 def edit_interpersonal(request, session_id):
