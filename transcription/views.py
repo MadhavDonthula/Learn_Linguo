@@ -101,22 +101,24 @@ def interpersonal_session_details(request, session_id):
     questions = session.questions.all().order_by('order')
     
     questions_data = []
+    transcriptions = {}
     for question in questions:
         questions_data.append({
             'id': question.id,
             'order': question.order,
-            'audio_data': question.audio_file,  # Now this is a URL
+            'audio_data': request.build_absolute_uri(question.audio_file),  # Use full URL
             'transcription': question.transcription,
         })
+        transcriptions[question.id] = question.transcription
     
     context = {
         'session': session,
-        'questions_data': json.dumps(questions_data),
+        'questions_data': json.dumps(questions_data, cls=DjangoJSONEncoder),
+        'transcriptions': json.dumps(transcriptions, cls=DjangoJSONEncoder),
         'is_completed': UserInterpersonalProgress.objects.filter(user=request.user, session=session, has_completed=True).exists(),
     }
     
     return render(request, 'transcription/interpersonal_session.html', context)
-
 
 @login_required(login_url="login")
 def index(request, assignment_id=None):
