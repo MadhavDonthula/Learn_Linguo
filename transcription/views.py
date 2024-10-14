@@ -708,6 +708,7 @@ def add_interpersonal(request):
 @login_required
 @require_http_methods(["GET", "POST"])
 @require_http_methods(["GET", "POST"])
+@require_http_methods(["GET", "POST"])
 def edit_interpersonal(request, session_id):
     session = get_object_or_404(InterpersonalSession, id=session_id)
 
@@ -720,7 +721,7 @@ def edit_interpersonal(request, session_id):
                 'id': question.id,
                 'order': question.order,
                 'transcription': question.transcription,
-                'audio_file': question.audio_file,  # Pass the audio_file field directly
+                'audio_url': question.audio_file.url if question.audio_file else None,
             })
         context = {
             'session': session,

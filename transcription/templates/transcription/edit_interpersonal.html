@@ -129,6 +129,35 @@
         let mediaRecorder;
         let audioChunks = [];
     
+        function playAudio(audioUrl) {
+            return new Promise((resolve, reject) => {
+                const audio = new Audio();
+                audio.onerror = (e) => {
+                    console.error('Error playing audio:', e);
+                    console.error('Audio source:', audioUrl);
+                    alert(`Error playing audio. Source: ${audioUrl}. Please check the console for details.`);
+                    reject(e);
+                };
+                audio.onloadedmetadata = () => {
+                    console.log('Audio metadata loaded successfully');
+                };
+                audio.oncanplaythrough = () => {
+                    console.log('Audio can play through');
+                    audio.play().then(() => {
+                        console.log('Audio started playing');
+                        audio.onended = () => {
+                            console.log('Audio finished playing');
+                            resolve();
+                        };
+                    }).catch(e => {
+                        console.error('Error playing audio:', e);
+                        reject(e);
+                    });
+                };
+                audio.src = audioUrl;
+            });
+        }
+    
         document.querySelectorAll('.redo-recording').forEach(button => {
             button.addEventListener('click', function() {
                 const questionItem = this.closest('.question-item');
@@ -143,39 +172,61 @@
             });
         });
     
-        function startRecording(questionItem) {
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    audioChunks = [];
-                    mediaRecorder.addEventListener("dataavailable", event => {
-                        audioChunks.push(event.data);
-                    });
-                    questionItem.querySelector('.redo-recording').style.display = 'none';
-                    questionItem.querySelector('.stop-recording').style.display = 'inline-block';
-                    questionItem.querySelector('.redo-recording').classList.add('recording');
-                });
+        async function startRecording(questionItem) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+    
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+    
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    questionItem.querySelector('.audio-preview').src = audioUrl;
+                    questionItem.querySelector('.audio-preview').style.display = 'block';
+    
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = function() {
+                        questionItem.querySelector('.audio-data').value = reader.result;
+                    }
+                };
+    
+                mediaRecorder.start();
+                questionItem.querySelector('.redo-recording').style.display = 'none';
+                questionItem.querySelector('.stop-recording').style.display = 'inline-block';
+                questionItem.querySelector('.redo-recording').classList.add('recording');
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                alert('Failed to start recording. Please check your microphone permissions.');
+            }
         }
     
         function stopRecording(questionItem) {
-            mediaRecorder.stop();
-            mediaRecorder.addEventListener("stop", () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                const audioUrl = URL.createObjectURL(audioBlob);
-                questionItem.querySelector('.audio-preview').src = audioUrl;
-                questionItem.querySelector('.audio-preview').style.display = 'block';
-                
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = function() {
-                    questionItem.querySelector('.audio-data').value = reader.result;
-                }
-            });
-            questionItem.querySelector('.stop-recording').style.display = 'none';
-            questionItem.querySelector('.redo-recording').style.display = 'inline-block';
-            questionItem.querySelector('.redo-recording').classList.remove('recording');
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                questionItem.querySelector('.stop-recording').style.display = 'none';
+                questionItem.querySelector('.redo-recording').style.display = 'inline-block';
+                questionItem.querySelector('.redo-recording').classList.remove('recording');
+            }
         }
+    
+        // Add event listeners to play original recordings
+        document.querySelectorAll('.question-item').forEach(item => {
+            const audioElement = item.querySelector('audio');
+            if (audioElement) {
+                audioElement.addEventListener('play', async () => {
+                    try {
+                        await playAudio(audioElement.src);
+                    } catch (error) {
+                        console.error('Error playing audio:', error);
+                    }
+                });
+            }
+        });
     
         function showSuccessPopup(classCode) {
             const popup = document.getElementById('successPopup');
@@ -184,13 +235,13 @@
             popup.style.display = 'block';
             popup.classList.add('fade-in');
         }
-
+    
         function closePopup() {
             const popup = document.getElementById('successPopup');
             popup.style.display = 'none';
             window.location.href = "{% url 'interpersonal' %}";
         }
-
+    
         document.getElementById('edit-interpersonal-form').addEventListener('submit', function(e) {
             e.preventDefault();
             
