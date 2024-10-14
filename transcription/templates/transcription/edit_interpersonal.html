@@ -84,19 +84,23 @@
             </div>
             
             <div id="questions-container" class="space-y-4">
-                {% for question in session.questions.all %}
+                {% for question in questions %}
                     <div class="question-item border p-4 rounded" data-question-id="{{ question.id }}">
                         <h3 class="font-bold mb-2">Question {{ question.order }}</h3>
                         <div class="mb-4">
                             <p class="font-semibold">Original Recording:</p>
-                            <audio controls src="{{ question.audio_file.url }}" class="w-full"></audio>
+                            {% if question.audio_url %}
+                                <audio controls src="{{ question.audio_url }}" class="w-full"></audio>
+                            {% else %}
+                                <p>No audio available</p>
+                            {% endif %}
                         </div>
                         <div>
                             <button type="button" class="redo-recording bg-red-500 text-white p-2 rounded mb-2">Redo Recording</button>
                             <button type="button" class="stop-recording bg-gray-500 text-white p-2 rounded mb-2" style="display:none;">Stop Recording</button>
                         </div>
                         <audio class="audio-preview" controls style="display:none;"></audio>
-                        <input type="hidden" class="audio-data" name="audio_{{ question.id }}" value="{{ question.audio_file.url }}">
+                        <input type="hidden" class="audio-data" name="audio_{{ question.id }}" value="{{ question.audio_url|default:'' }}">
                         <div class="mt-2">
                             <label class="block mb-1">Transcription:</label>
                             <textarea name="transcription_{{ question.id }}" class="w-full p-2 border rounded" rows="3">{{ question.transcription }}</textarea>

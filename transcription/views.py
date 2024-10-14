@@ -756,6 +756,12 @@ def edit_interpersonal(request, session_id):
                     ext = format.split('/')[-1]
                     audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question.order}.{ext}')
                     question.audio_file = audio_file
+                elif audio_data and not audio_data.startswith('data:audio'):
+                    # If audio_data is a URL, keep the existing file
+                    pass
+                else:
+                    # If no audio data is provided, clear the audio file
+                    question.audio_file = None
 
                 question.save()
 
