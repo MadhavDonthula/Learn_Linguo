@@ -1,288 +1,295 @@
+{% extends 'base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Interpersonal Session</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            background: linear-gradient(to bottom right, #E0F2FE, #BAE6FD);
-            min-height: 100vh;
-        }
-        @keyframes blink {
-            0% { background-color: #EF4444; }
-            50% { background-color: #DC2626; }
-            100% { background-color: #EF4444; }
-        }
-        .recording {
-            animation: blink 1s infinite;
-        }
-        .popup {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
-            z-index: 1000;
-            overflow: hidden;
-        }
-        .popup-content {
-            padding: 2rem;
-            text-align: center;
-        }
-        .popup-header {
-            background-color: #3B82F6;
-            color: white;
-            padding: 1rem;
-            font-weight: bold;
-            font-size: 1.25rem;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .fade-in {
-            animation: fadeIn 0.5s ease-out;
-        }
-    </style>
-</head>
-<body class="p-8">
-    <div class="max-w-2xl mx-auto bg-white p-8 rounded shadow">
-        <h1 class="text-2xl font-bold mb-6">Edit Interpersonal Session</h1>
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white p-8 rounded shadow">
+    <h1 class="text-2xl font-bold mb-6">Edit Interpersonal Session</h1>
+    
+    <form id="edit-interpersonal-form" class="space-y-4">
+        {% csrf_token %}
+        <input type="hidden" name="session_id" value="{{ session.id }}">
         
-        <form id="edit-interpersonal-form" class="space-y-4">
-            {% csrf_token %}
-            <input type="hidden" name="session_id" value="{{ session.id }}">
-            
-            <div>
-                <label for="title" class="block mb-1">Session Title:</label>
-                <input type="text" id="title" name="title" required class="w-full p-2 border rounded" value="{{ session.title }}">
-            </div>
-            
-            <div>
-                <label for="class-code" class="block mb-1">Class Code:</label>
-                <select id="class-code" name="class_code" required class="w-full p-2 border rounded">
-                    {% for class_code in class_codes %}
-                        <option value="{{ class_code.code }}" {% if session.class_code.code == class_code.code %}selected{% endif %}>
-                            {{ class_code.name }} ({{ class_code.code }})
-                        </option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div>
-                <label for="language" class="block mb-1">Language:</label>
-                <select id="language" name="language" required class="w-full p-2 border rounded">
-                    <option value="fr" {% if session.language == 'fr' %}selected{% endif %}>French</option>
-                    <option value="es" {% if session.language == 'es' %}selected{% endif %}>Spanish</option>
-                </select>
-            </div>
-            
-            <div id="questions-container" class="space-y-4">
-                {% for question in questions %}
-                    <div class="question-item border p-4 rounded" data-question-id="{{ question.id }}">
-                        <h3 class="font-bold mb-2">Question {{ question.order }}</h3>
-                        <div class="mb-4">
-                            <p class="font-semibold">Original Recording:</p>
-                            {% if question.audio_url %}
-                                <audio controls src="{{ question.audio_url }}" class="w-full"></audio>
-                            {% else %}
-                                <p>No audio available</p>
-                            {% endif %}
-                        </div>
-                        <div>
-                            <button type="button" class="redo-recording bg-red-500 text-white p-2 rounded mb-2">Redo Recording</button>
-                            <button type="button" class="stop-recording bg-gray-500 text-white p-2 rounded mb-2" style="display:none;">Stop Recording</button>
-                        </div>
-                        <audio class="audio-preview" controls style="display:none;"></audio>
-                        <input type="hidden" class="audio-data" name="audio_{{ question.id }}" value="{{ question.audio_url|default:'' }}">
-                        <div class="mt-2">
-                            <label class="block mb-1">Transcription:</label>
-                            <textarea name="transcription_{{ question.id }}" class="w-full p-2 border rounded" rows="3">{{ question.transcription }}</textarea>
-                        </div>
-                    </div>
+        <div>
+            <label for="title" class="block mb-1">Session Title:</label>
+            <input type="text" id="title" name="title" required class="w-full p-2 border rounded" value="{{ session.title }}">
+        </div>
+        
+        <div>
+            <label for="class-code" class="block mb-1">Class Code:</label>
+            <select id="class-code" name="class_code" required class="w-full p-2 border rounded">
+                {% for class_code in class_codes %}
+                    <option value="{{ class_code.code }}" {% if session.class_code.code == class_code.code %}selected{% endif %}>
+                        {{ class_code.name }} ({{ class_code.code }})
+                    </option>
                 {% endfor %}
-            </div>
-            
-            <button type="submit" class="bg-green-500 text-white p-2 rounded">Save Changes</button>
-        </form>
-    </div>
-
-    <div id="successPopup" class="popup">
-        <div class="popup-header">
-            Session Updated Successfully
+            </select>
         </div>
-        <div class="popup-content">
-            <p id="popupMessage" class="text-lg mb-4"></p>
-            <button onclick="closePopup()" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-                Close
-            </button>
+        
+        <div>
+            <label for="language" class="block mb-1">Language:</label>
+            <select id="language" name="language" required class="w-full p-2 border rounded">
+                <option value="fr" {% if session.language == 'fr' %}selected{% endif %}>French</option>
+                <option value="es" {% if session.language == 'es' %}selected{% endif %}>Spanish</option>
+            </select>
         </div>
-    </div>
+        
+        <div id="questions-container" class="space-y-4">
+            {% for question in questions %}
+                <div class="question-item border p-4 rounded" data-question-id="{{ question.id }}">
+                    <h3 class="font-bold mb-2">Question {{ question.order }}</h3>
+                    
+                    <!-- Audio Player Section -->
+                    <div class="mb-4">
+                        <p class="font-semibold">Original Recording:</p>
+                        {% if question.audio_url %}
+                            <div class="audio-player-container mb-2">
+                                <button type="button" class="play-audio bg-blue-500 text-white px-4 py-2 rounded mr-2">
+                                    Play Audio
+                                </button>
+                                <span class="audio-status"></span>
+                            </div>
+                            <audio class="hidden-audio" src="{{ question.audio_url }}"></audio>
+                        {% else %}
+                            <p>No audio available</p>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Recording Controls -->
+                    <div class="recording-controls mb-4">
+                        <button type="button" class="start-recording bg-red-500 text-white px-4 py-2 rounded mr-2">
+                            Start New Recording
+                        </button>
+                        <button type="button" class="stop-recording bg-gray-500 text-white px-4 py-2 rounded hidden">
+                            Stop Recording
+                        </button>
+                        <span class="recording-status ml-2"></span>
+                    </div>
+                    
+                    <!-- New Recording Preview -->
+                    <div class="new-recording-preview mb-4 hidden">
+                        <p class="font-semibold">New Recording Preview:</p>
+                        <audio class="new-audio" controls></audio>
+                        <button type="button" class="discard-recording bg-gray-500 text-white px-4 py-2 rounded mt-2">
+                            Discard New Recording
+                        </button>
+                    </div>
+                    
+                    <input type="hidden" class="audio-data" name="audio_{{ question.id }}" 
+                           value="{{ question.audio_url|default:'' }}">
+                    
+                    <div class="mt-2">
+                        <label class="block mb-1">Transcription:</label>
+                        <textarea name="transcription_{{ question.id }}" 
+                                  class="w-full p-2 border rounded" 
+                                  rows="3">{{ question.transcription }}</textarea>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <button type="submit" class="bg-green-500 text-white p-2 rounded">Save Changes</button>
+    </form>
+</div>
 
-    <script>
-        let mediaRecorder;
-        let audioChunks = [];
-    
-        function playAudio(audioUrl) {
-            return new Promise((resolve, reject) => {
-                const audio = new Audio();
-                audio.onerror = (e) => {
-                    console.error('Error playing audio:', e);
-                    console.error('Audio source:', audioUrl);
-                    alert(`Error playing audio. Source: ${audioUrl}. Please check the console for details.`);
-                    reject(e);
-                };
-                audio.onloadedmetadata = () => {
-                    console.log('Audio metadata loaded successfully');
-                };
-                audio.oncanplaythrough = () => {
-                    console.log('Audio can play through');
-                    audio.play().then(() => {
-                        console.log('Audio started playing');
-                        audio.onended = () => {
-                            console.log('Audio finished playing');
-                            resolve();
-                        };
-                    }).catch(e => {
-                        console.error('Error playing audio:', e);
-                        reject(e);
-                    });
-                };
-                audio.src = audioUrl;
-            });
-        }
-    
-        document.querySelectorAll('.redo-recording').forEach(button => {
-            button.addEventListener('click', function() {
-                const questionItem = this.closest('.question-item');
-                startRecording(questionItem);
-            });
-        });
-    
-        document.querySelectorAll('.stop-recording').forEach(button => {
-            button.addEventListener('click', function() {
-                const questionItem = this.closest('.question-item');
-                stopRecording(questionItem);
-            });
-        });
-    
-        async function startRecording(questionItem) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-    
-                mediaRecorder.ondataavailable = (event) => {
-                    audioChunks.push(event.data);
-                };
-    
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    questionItem.querySelector('.audio-preview').src = audioUrl;
-                    questionItem.querySelector('.audio-preview').style.display = 'block';
-    
-                    const reader = new FileReader();
-                    reader.readAsDataURL(audioBlob);
-                    reader.onloadend = function() {
-                        questionItem.querySelector('.audio-data').value = reader.result;
-                    }
-                };
-    
-                mediaRecorder.start();
-                questionItem.querySelector('.redo-recording').style.display = 'none';
-                questionItem.querySelector('.stop-recording').style.display = 'inline-block';
-                questionItem.querySelector('.redo-recording').classList.add('recording');
-            } catch (error) {
-                console.error('Error starting recording:', error);
-                alert('Failed to start recording. Please check your microphone permissions.');
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const questions = JSON.parse('{{ questions_json|escapejs }}');
+    let currentlyPlaying = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+
+    // Audio playback function
+    function playAudio(audioUrl, buttonElement, statusElement) {
+        return new Promise((resolve, reject) => {
+            if (currentlyPlaying) {
+                currentlyPlaying.pause();
+                currentlyPlaying.currentTime = 0;
             }
-        }
-    
-        function stopRecording(questionItem) {
-            if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-                questionItem.querySelector('.stop-recording').style.display = 'none';
-                questionItem.querySelector('.redo-recording').style.display = 'inline-block';
-                questionItem.querySelector('.redo-recording').classList.remove('recording');
-            }
-        }
-    
-        // Add event listeners to play original recordings
-        document.querySelectorAll('.question-item').forEach(item => {
-            const audioElement = item.querySelector('audio');
-            if (audioElement) {
-                audioElement.addEventListener('play', async () => {
-                    try {
-                        await playAudio(audioElement.src);
-                    } catch (error) {
-                        console.error('Error playing audio:', error);
-                    }
-                });
-            }
-        });
-    
-        function showSuccessPopup(classCode) {
-            const popup = document.getElementById('successPopup');
-            const message = document.getElementById('popupMessage');
-            message.textContent = `Session successfully updated for class: ${classCode}`;
-            popup.style.display = 'block';
-            popup.classList.add('fade-in');
-        }
-    
-        function closePopup() {
-            const popup = document.getElementById('successPopup');
-            popup.style.display = 'none';
-            window.location.href = "{% url 'interpersonal' %}";
-        }
-    
-        document.getElementById('edit-interpersonal-form').addEventListener('submit', function(e) {
-            e.preventDefault();
+
+            const audio = new Audio();
             
-            const formData = {
-                session_id: this.querySelector('input[name="session_id"]').value,
-                title: document.getElementById('title').value,
-                class_code: document.getElementById('class-code').value,
-                language: document.getElementById('language').value,
-                questions: []
+            audio.onerror = (e) => {
+                console.error('Error playing audio:', e);
+                statusElement.textContent = 'Error playing audio';
+                buttonElement.textContent = 'Play Audio';
+                reject(e);
             };
-        
-            this.querySelectorAll('.question-item').forEach((item) => {
-                const questionId = item.dataset.questionId;
-                formData.questions.push({
-                    id: questionId,
-                    audio_data: item.querySelector('.audio-data').value,
-                    transcription: item.querySelector(`textarea[name="transcription_${questionId}"]`).value
-                });
+
+            audio.onloadedmetadata = () => {
+                statusElement.textContent = 'Audio loaded';
+            };
+
+            audio.onplay = () => {
+                buttonElement.textContent = 'Stop Audio';
+                statusElement.textContent = 'Playing...';
+                currentlyPlaying = audio;
+            };
+
+            audio.onended = () => {
+                buttonElement.textContent = 'Play Audio';
+                statusElement.textContent = 'Finished';
+                currentlyPlaying = null;
+                resolve();
+            };
+
+            audio.onpause = () => {
+                buttonElement.textContent = 'Play Audio';
+                statusElement.textContent = 'Paused';
+            };
+
+            audio.src = audioUrl;
+            audio.play().catch(e => {
+                console.error('Error playing audio:', e);
+                statusElement.textContent = 'Error playing audio';
+                reject(e);
             });
-        
-            fetch("{% url 'edit_interpersonal' session.id %}", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify(formData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    showSuccessPopup(formData.class_code);
+
+            buttonElement.onclick = () => {
+                if (audio.paused) {
+                    audio.play();
                 } else {
-                    alert(`Error: ${data.message}`);
+                    audio.pause();
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert(`An error occurred while updating the session: ${error.message}`);
+            };
+        });
+    }
+
+    // Recording functions
+    async function startRecording(questionItem) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            const startButton = questionItem.querySelector('.start-recording');
+            const stopButton = questionItem.querySelector('.stop-recording');
+            const statusSpan = questionItem.querySelector('.recording-status');
+
+            mediaRecorder.ondataavailable = (event) => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                
+                // Show preview section
+                const previewSection = questionItem.querySelector('.new-recording-preview');
+                const previewAudio = questionItem.querySelector('.new-audio');
+                previewSection.classList.remove('hidden');
+                previewAudio.src = audioUrl;
+
+                // Convert to base64 for form submission
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = function() {
+                    questionItem.querySelector('.audio-data').value = reader.result;
+                };
+            };
+
+            mediaRecorder.start();
+            startButton.classList.add('hidden');
+            stopButton.classList.remove('hidden');
+            statusSpan.textContent = 'Recording...';
+
+        } catch (error) {
+            console.error('Error starting recording:', error);
+            alert('Failed to start recording. Please check your microphone permissions.');
+        }
+    }
+
+    function stopRecording(questionItem) {
+        if (mediaRecorder && mediaRecorder.state === "recording") {
+            mediaRecorder.stop();
+            const stream = mediaRecorder.stream;
+            stream.getTracks().forEach(track => track.stop());
+            
+            const startButton = questionItem.querySelector('.start-recording');
+            const stopButton = questionItem.querySelector('.stop-recording');
+            const statusSpan = questionItem.querySelector('.recording-status');
+            
+            startButton.classList.remove('hidden');
+            stopButton.classList.add('hidden');
+            statusSpan.textContent = 'Recording complete';
+        }
+    }
+
+    // Set up event listeners for each question
+    document.querySelectorAll('.question-item').forEach(item => {
+        // Play original audio
+        const playButton = item.querySelector('.play-audio');
+        const statusElement = item.querySelector('.audio-status');
+        const audioElement = item.querySelector('.hidden-audio');
+
+        if (playButton && audioElement) {
+            playButton.addEventListener('click', async () => {
+                try {
+                    await playAudio(audioElement.src, playButton, statusElement);
+                } catch (error) {
+                    console.error('Error playing audio:', error);
+                }
+            });
+        }
+
+        // Recording controls
+        const startRecordingButton = item.querySelector('.start-recording');
+        const stopRecordingButton = item.querySelector('.stop-recording');
+        const discardButton = item.querySelector('.discard-recording');
+
+        startRecordingButton.addEventListener('click', () => startRecording(item));
+        stopRecordingButton.addEventListener('click', () => stopRecording(item));
+        
+        discardButton.addEventListener('click', () => {
+            const previewSection = item.querySelector('.new-recording-preview');
+            previewSection.classList.add('hidden');
+            item.querySelector('.audio-data').value = audioElement?.src || '';
+            item.querySelector('.recording-status').textContent = '';
+        });
+    });
+
+    // Form submission
+    document.getElementById('edit-interpersonal-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            session_id: this.querySelector('input[name="session_id"]').value,
+            title: document.getElementById('title').value,
+            class_code: document.getElementById('class-code').value,
+            language: document.getElementById('language').value,
+            questions: []
+        };
+    
+        this.querySelectorAll('.question-item').forEach((item) => {
+            const questionId = item.dataset.questionId;
+            formData.questions.push({
+                id: questionId,
+                audio_data: item.querySelector('.audio-data').value,
+                transcription: item.querySelector(`textarea[name="transcription_${questionId}"]`).value
             });
         });
-    </script>
-</body>
-</html>
+    
+        fetch("{% url 'edit_interpersonal' session.id %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Session updated successfully');
+                window.location.href = "{% url 'interpersonal' %}";
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(`An error occurred while updating the session: ${error.message}`);
+        });
+    });
+});
+</script>
+{% endblock %}
