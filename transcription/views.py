@@ -717,13 +717,27 @@ def edit_interpersonal(request, session_id):
         class_codes = ClassCode.objects.all()
         questions = session.questions.all().order_by('order')
         questions_data = []
+        
         for question in questions:
+            # Generate full URL for audio file
+            audio_url = None
+            if question.audio_file:
+                # Check if it's already a full URL
+                if question.audio_file.startswith('http'):
+                    audio_url = question.audio_file
+                else:
+                    # Construct the full URL
+                    audio_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{question.audio_file}"
+            
             questions_data.append({
                 'id': question.id,
                 'order': question.order,
                 'transcription': question.transcription,
-                'audio_url': question.audio_file,
+                'audio_url': audio_url,
             })
+            
+            logger.info(f"Question {question.id} audio URL: {audio_url}")
+        
         context = {
             'session': session,
             'class_codes': class_codes,
@@ -765,20 +779,25 @@ def edit_interpersonal(request, session_id):
                     ext = format.split('/')[-1]
                     audio_bytes = base64.b64decode(audio_str)
 
-                    # Upload to B2
-                    file_name = f'interpersonal_questions/question_{session.id}_{question.id or "new"}_{question.order}.{ext}'
+                    # Generate unique filename
+                    file_name = f'interpersonal_questions/question_{session.id}_{question.id or "new"}_{int(timezone.now().timestamp())}.{ext}'
+                    
                     try:
                         logger.info(f"Attempting to upload file: {file_name}")
                         s3_client.upload_fileobj(
                             BytesIO(audio_bytes),
                             settings.AWS_STORAGE_BUCKET_NAME,
                             file_name,
-                            ExtraArgs={'ContentType': f'audio/{ext}'}
+                            ExtraArgs={
+                                'ContentType': f'audio/{ext}',
+                                'ACL': 'public-read'  # Make sure file is publicly accessible
+                            }
                         )
                         logger.info(f"Successfully uploaded file: {file_name}")
                         
-                        # Update question with new audio file URL
-                        question.audio_file = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+                        # Store just the file path, not the full URL
+                        question.audio_file = file_name
+
                     except ClientError as e:
                         logger.error(f"ClientError uploading file to B2: {str(e)}")
                         return JsonResponse({'status': 'error', 'message': f'Failed to upload audio file: {str(e)}'}, status=500)

@@ -97,7 +97,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let mediaRecorder = null;
     let audioChunks = [];
 
-    // Audio playback function
     function playAudio(audioUrl, buttonElement, statusElement) {
         return new Promise((resolve, reject) => {
             if (currentlyPlaying) {
@@ -109,22 +108,33 @@ document.addEventListener('DOMContentLoaded', function() {
             
             audio.onerror = (e) => {
                 console.error('Error playing audio:', e);
+                console.error('Audio source:', audioUrl);
                 statusElement.textContent = 'Error playing audio';
                 buttonElement.textContent = 'Play Audio';
                 reject(e);
             };
 
             audio.onloadedmetadata = () => {
+                console.log('Audio metadata loaded for:', audioUrl);
                 statusElement.textContent = 'Audio loaded';
             };
 
-            audio.onplay = () => {
-                buttonElement.textContent = 'Stop Audio';
-                statusElement.textContent = 'Playing...';
-                currentlyPlaying = audio;
+            audio.oncanplaythrough = () => {
+                console.log('Audio can play through:', audioUrl);
+                audio.play().then(() => {
+                    console.log('Audio started playing');
+                    buttonElement.textContent = 'Stop Audio';
+                    statusElement.textContent = 'Playing...';
+                    currentlyPlaying = audio;
+                }).catch(e => {
+                    console.error('Error playing audio:', e);
+                    statusElement.textContent = 'Error playing audio';
+                    reject(e);
+                });
             };
 
             audio.onended = () => {
+                console.log('Audio finished playing');
                 buttonElement.textContent = 'Play Audio';
                 statusElement.textContent = 'Finished';
                 currentlyPlaying = null;
@@ -136,22 +146,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusElement.textContent = 'Paused';
             };
 
+            // Add console log to verify URL
+            console.log('Loading audio from URL:', audioUrl);
             audio.src = audioUrl;
-            audio.play().catch(e => {
-                console.error('Error playing audio:', e);
-                statusElement.textContent = 'Error playing audio';
-                reject(e);
-            });
-
-            buttonElement.onclick = () => {
-                if (audio.paused) {
-                    audio.play();
-                } else {
-                    audio.pause();
-                }
-            };
         });
     }
+
 
     // Recording functions
     async function startRecording(questionItem) {
