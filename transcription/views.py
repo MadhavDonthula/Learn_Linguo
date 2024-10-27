@@ -722,12 +722,17 @@ def edit_interpersonal(request, session_id):
                 'id': question.id,
                 'order': question.order,
                 'transcription': question.transcription,
-                'audio_file': question.audio_file,  # Pass the audio_file field directly
+                'audio_url': question.audio_file,
             })
         context = {
             'session': session,
             'class_codes': class_codes,
             'questions': questions_data,
+            'questions_json': json.dumps([{
+                'id': q['id'],
+                'order': q['order'],
+                'audio_url': q['audio_url']
+            } for q in questions_data], cls=DjangoJSONEncoder),
         }
         return render(request, 'transcription/edit_interpersonal.html', context)
 
@@ -755,10 +760,31 @@ def edit_interpersonal(request, session_id):
 
                 audio_data = question_data.get('audio_data')
                 if audio_data and audio_data.startswith('data:audio'):
+                    # Process new audio recording
                     format, audio_str = audio_data.split(';base64,')
                     ext = format.split('/')[-1]
-                    audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question.order}.{ext}')
-                    question.audio_file = audio_file
+                    audio_bytes = base64.b64decode(audio_str)
+
+                    # Upload to B2
+                    file_name = f'interpersonal_questions/question_{session.id}_{question.id or "new"}_{question.order}.{ext}'
+                    try:
+                        logger.info(f"Attempting to upload file: {file_name}")
+                        s3_client.upload_fileobj(
+                            BytesIO(audio_bytes),
+                            settings.AWS_STORAGE_BUCKET_NAME,
+                            file_name,
+                            ExtraArgs={'ContentType': f'audio/{ext}'}
+                        )
+                        logger.info(f"Successfully uploaded file: {file_name}")
+                        
+                        # Update question with new audio file URL
+                        question.audio_file = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+                    except ClientError as e:
+                        logger.error(f"ClientError uploading file to B2: {str(e)}")
+                        return JsonResponse({'status': 'error', 'message': f'Failed to upload audio file: {str(e)}'}, status=500)
+                    except Exception as e:
+                        logger.error(f"Unexpected error uploading file to B2: {str(e)}")
+                        return JsonResponse({'status': 'error', 'message': f'Unexpected error uploading audio file: {str(e)}'}, status=500)
                 elif audio_data and not audio_data.startswith('data:audio'):
                     # If audio_data is a URL, keep the existing file
                     pass
