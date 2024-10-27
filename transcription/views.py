@@ -709,7 +709,6 @@ def add_interpersonal(request):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 from django.core.files.base import ContentFile  # Correct import for ContentFile
-
 @login_required
 @require_http_methods(["GET", "POST"])
 def edit_interpersonal(request, session_id):
@@ -765,13 +764,22 @@ def edit_interpersonal(request, session_id):
 
             for question_data in data.get('questions', []):
                 question_id = question_data.get('id')
+                order = question_data.get('order')
+                
+                if not order:
+                    logger.error(f"Missing order for question data: {question_data}")
+                    return JsonResponse({
+                        'status': 'error', 
+                        'message': f'Missing order for question {question_id}'
+                    }, status=400)
+
                 if question_id:
                     question = session.questions.get(id=question_id)
                     updated_question_ids.add(question_id)
                 else:
                     question = InterpersonalQuestion(session=session)
                 
-                question.order = question_data.get('order')
+                question.order = order
                 question.transcription = question_data.get('transcription', '')
 
                 audio_data = question_data.get('audio_data')
@@ -792,25 +800,29 @@ def edit_interpersonal(request, session_id):
                             file_name,
                             ExtraArgs={
                                 'ContentType': f'audio/{ext}',
-                                'ACL': 'public-read'  # Make sure file is publicly accessible
+                                'ACL': 'public-read'
                             }
                         )
                         logger.info(f"Successfully uploaded file: {file_name}")
                         
-                        # Store just the file path, not the full URL
                         question.audio_file = file_name
 
                     except ClientError as e:
                         logger.error(f"ClientError uploading file to B2: {str(e)}")
-                        return JsonResponse({'status': 'error', 'message': f'Failed to upload audio file: {str(e)}'}, status=500)
+                        return JsonResponse({
+                            'status': 'error', 
+                            'message': f'Failed to upload audio file: {str(e)}'
+                        }, status=500)
                     except Exception as e:
                         logger.error(f"Unexpected error uploading file to B2: {str(e)}")
-                        return JsonResponse({'status': 'error', 'message': f'Unexpected error uploading audio file: {str(e)}'}, status=500)
+                        return JsonResponse({
+                            'status': 'error', 
+                            'message': f'Unexpected error uploading audio file: {str(e)}'
+                        }, status=500)
                 elif audio_data and not audio_data.startswith('data:audio'):
                     # If audio_data is a URL, keep the existing file
                     pass
                 else:
-                    # If no audio data is provided, clear the audio file
                     question.audio_file = None
 
                 question.save()

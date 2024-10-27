@@ -189,6 +189,7 @@
                 const questionId = item.dataset.questionId;
                 formData.questions.push({
                     id: questionId,
+                    order: parseInt(item.querySelector('h3').textContent.split(' ')[1]), // Get order from the heading
                     audio_data: item.querySelector('.audio-data').value,
                     transcription: item.querySelector(`textarea[name="transcription_${questionId}"]`).value
                 });
@@ -216,6 +217,6 @@
                 alert(`An error occurred while updating the session: ${error.message}`);
             });
         });
-    });
+        
     </script>
     {% endblock %}
