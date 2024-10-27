@@ -37,17 +37,16 @@
                 <div class="question-item border p-4 rounded" data-question-id="{{ question.id }}">
                     <h3 class="font-bold mb-2">Question {{ question.order }}</h3>
                     
-                    <!-- Audio Player Section -->
+                    <!-- Audio Player Section - Modified -->
                     <div class="mb-4">
                         <p class="font-semibold">Original Recording:</p>
                         {% if question.audio_url %}
                             <div class="audio-player-container mb-2">
-                                <button type="button" class="play-audio bg-blue-500 text-white px-4 py-2 rounded mr-2">
-                                    Play Audio
-                                </button>
-                                <span class="audio-status"></span>
+                                <audio controls class="original-audio w-full mb-2">
+                                    <source src="{{ question.audio_url }}" type="audio/wav">
+                                    Your browser does not support the audio element.
+                                </audio>
                             </div>
-                            <audio class="hidden-audio" src="{{ question.audio_url }}"></audio>
                         {% else %}
                             <p>No audio available</p>
                         {% endif %}
@@ -87,208 +86,136 @@
         </div>
         
         <button type="submit" class="bg-green-500 text-white p-2 rounded">Save Changes</button>
-    </form>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const questions = JSON.parse('{{ questions_json|escapejs }}');
-    let currentlyPlaying = null;
-    let mediaRecorder = null;
-    let audioChunks = [];
-
-    function playAudio(audioUrl, buttonElement, statusElement) {
-        return new Promise((resolve, reject) => {
-            if (currentlyPlaying) {
-                currentlyPlaying.pause();
-                currentlyPlaying.currentTime = 0;
-            }
-
-            const audio = new Audio();
-            
-            audio.onerror = (e) => {
-                console.error('Error playing audio:', e);
-                console.error('Audio source:', audioUrl);
-                statusElement.textContent = 'Error playing audio';
-                buttonElement.textContent = 'Play Audio';
-                reject(e);
-            };
-
-            audio.onloadedmetadata = () => {
-                console.log('Audio metadata loaded for:', audioUrl);
-                statusElement.textContent = 'Audio loaded';
-            };
-
-            audio.oncanplaythrough = () => {
-                console.log('Audio can play through:', audioUrl);
-                audio.play().then(() => {
-                    console.log('Audio started playing');
-                    buttonElement.textContent = 'Stop Audio';
-                    statusElement.textContent = 'Playing...';
-                    currentlyPlaying = audio;
-                }).catch(e => {
-                    console.error('Error playing audio:', e);
-                    statusElement.textContent = 'Error playing audio';
-                    reject(e);
-                });
-            };
-
-            audio.onended = () => {
-                console.log('Audio finished playing');
-                buttonElement.textContent = 'Play Audio';
-                statusElement.textContent = 'Finished';
-                currentlyPlaying = null;
-                resolve();
-            };
-
-            audio.onpause = () => {
-                buttonElement.textContent = 'Play Audio';
-                statusElement.textContent = 'Paused';
-            };
-
-            // Add console log to verify URL
-            console.log('Loading audio from URL:', audioUrl);
-            audio.src = audioUrl;
-        });
-    }
-
-
-    // Recording functions
-    async function startRecording(questionItem) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-
-            const startButton = questionItem.querySelector('.start-recording');
-            const stopButton = questionItem.querySelector('.stop-recording');
-            const statusSpan = questionItem.querySelector('.recording-status');
-
-            mediaRecorder.ondataavailable = (event) => {
-                audioChunks.push(event.data);
-            };
-
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                const audioUrl = URL.createObjectURL(audioBlob);
-                
-                // Show preview section
-                const previewSection = questionItem.querySelector('.new-recording-preview');
-                const previewAudio = questionItem.querySelector('.new-audio');
-                previewSection.classList.remove('hidden');
-                previewAudio.src = audioUrl;
-
-                // Convert to base64 for form submission
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = function() {
-                    questionItem.querySelector('.audio-data').value = reader.result;
+    </div>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const questions = JSON.parse('{{ questions_json|escapejs }}');
+        let mediaRecorder = null;
+        let audioChunks = [];
+    
+        // Recording functions
+        async function startRecording(questionItem) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+    
+                const startButton = questionItem.querySelector('.start-recording');
+                const stopButton = questionItem.querySelector('.stop-recording');
+                const statusSpan = questionItem.querySelector('.recording-status');
+    
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
                 };
-            };
-
-            mediaRecorder.start();
-            startButton.classList.add('hidden');
-            stopButton.classList.remove('hidden');
-            statusSpan.textContent = 'Recording...';
-
-        } catch (error) {
-            console.error('Error starting recording:', error);
-            alert('Failed to start recording. Please check your microphone permissions.');
-        }
-    }
-
-    function stopRecording(questionItem) {
-        if (mediaRecorder && mediaRecorder.state === "recording") {
-            mediaRecorder.stop();
-            const stream = mediaRecorder.stream;
-            stream.getTracks().forEach(track => track.stop());
-            
-            const startButton = questionItem.querySelector('.start-recording');
-            const stopButton = questionItem.querySelector('.stop-recording');
-            const statusSpan = questionItem.querySelector('.recording-status');
-            
-            startButton.classList.remove('hidden');
-            stopButton.classList.add('hidden');
-            statusSpan.textContent = 'Recording complete';
-        }
-    }
-
-    // Set up event listeners for each question
-    document.querySelectorAll('.question-item').forEach(item => {
-        // Play original audio
-        const playButton = item.querySelector('.play-audio');
-        const statusElement = item.querySelector('.audio-status');
-        const audioElement = item.querySelector('.hidden-audio');
-
-        if (playButton && audioElement) {
-            playButton.addEventListener('click', async () => {
-                try {
-                    await playAudio(audioElement.src, playButton, statusElement);
-                } catch (error) {
-                    console.error('Error playing audio:', error);
-                }
-            });
-        }
-
-        // Recording controls
-        const startRecordingButton = item.querySelector('.start-recording');
-        const stopRecordingButton = item.querySelector('.stop-recording');
-        const discardButton = item.querySelector('.discard-recording');
-
-        startRecordingButton.addEventListener('click', () => startRecording(item));
-        stopRecordingButton.addEventListener('click', () => stopRecording(item));
-        
-        discardButton.addEventListener('click', () => {
-            const previewSection = item.querySelector('.new-recording-preview');
-            previewSection.classList.add('hidden');
-            item.querySelector('.audio-data').value = audioElement?.src || '';
-            item.querySelector('.recording-status').textContent = '';
-        });
-    });
-
-    // Form submission
-    document.getElementById('edit-interpersonal-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = {
-            session_id: this.querySelector('input[name="session_id"]').value,
-            title: document.getElementById('title').value,
-            class_code: document.getElementById('class-code').value,
-            language: document.getElementById('language').value,
-            questions: []
-        };
     
-        this.querySelectorAll('.question-item').forEach((item) => {
-            const questionId = item.dataset.questionId;
-            formData.questions.push({
-                id: questionId,
-                audio_data: item.querySelector('.audio-data').value,
-                transcription: item.querySelector(`textarea[name="transcription_${questionId}"]`).value
-            });
-        });
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    
+                    // Show preview section
+                    const previewSection = questionItem.querySelector('.new-recording-preview');
+                    const previewAudio = questionItem.querySelector('.new-audio');
+                    previewSection.classList.remove('hidden');
+                    previewAudio.src = audioUrl;
     
-        fetch("{% url 'edit_interpersonal' session.id %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify(formData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert('Session updated successfully');
-                window.location.href = "{% url 'interpersonal' %}";
-            } else {
-                alert(`Error: ${data.message}`);
+                    // Convert to base64 for form submission
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = function() {
+                        questionItem.querySelector('.audio-data').value = reader.result;
+                    };
+                };
+    
+                mediaRecorder.start();
+                startButton.classList.add('hidden');
+                stopButton.classList.remove('hidden');
+                statusSpan.textContent = 'Recording...';
+    
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                alert('Failed to start recording. Please check your microphone permissions.');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert(`An error occurred while updating the session: ${error.message}`);
+        }
+    
+        function stopRecording(questionItem) {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                const stream = mediaRecorder.stream;
+                stream.getTracks().forEach(track => track.stop());
+                
+                const startButton = questionItem.querySelector('.start-recording');
+                const stopButton = questionItem.querySelector('.stop-recording');
+                const statusSpan = questionItem.querySelector('.recording-status');
+                
+                startButton.classList.remove('hidden');
+                stopButton.classList.add('hidden');
+                statusSpan.textContent = 'Recording complete';
+            }
+        }
+    
+        // Set up event listeners for each question
+        document.querySelectorAll('.question-item').forEach(item => {
+            // Recording controls
+            const startRecordingButton = item.querySelector('.start-recording');
+            const stopRecordingButton = item.querySelector('.stop-recording');
+            const discardButton = item.querySelector('.discard-recording');
+    
+            startRecordingButton.addEventListener('click', () => startRecording(item));
+            stopRecordingButton.addEventListener('click', () => stopRecording(item));
+            
+            discardButton.addEventListener('click', () => {
+                const previewSection = item.querySelector('.new-recording-preview');
+                previewSection.classList.add('hidden');
+                const originalAudio = item.querySelector('.original-audio');
+                item.querySelector('.audio-data').value = originalAudio?.src || '';
+                item.querySelector('.recording-status').textContent = '';
+            });
+        });
+    
+        // Form submission handler remains the same
+        document.getElementById('edit-interpersonal-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                session_id: this.querySelector('input[name="session_id"]').value,
+                title: document.getElementById('title').value,
+                class_code: document.getElementById('class-code').value,
+                language: document.getElementById('language').value,
+                questions: []
+            };
+        
+            this.querySelectorAll('.question-item').forEach((item) => {
+                const questionId = item.dataset.questionId;
+                formData.questions.push({
+                    id: questionId,
+                    audio_data: item.querySelector('.audio-data').value,
+                    transcription: item.querySelector(`textarea[name="transcription_${questionId}"]`).value
+                });
+            });
+        
+            fetch("{% url 'edit_interpersonal' session.id %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Session updated successfully');
+                    window.location.href = "{% url 'interpersonal' %}";
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(`An error occurred while updating the session: ${error.message}`);
+            });
         });
     });
-});
-</script>
-{% endblock %}
+    </script>
+    {% endblock %}
