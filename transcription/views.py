@@ -705,6 +705,9 @@ def add_interpersonal(request):
         except Exception as e:
             logger.error(f"Error in add_interpersonal: {str(e)}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+from django.core.files.base import ContentFile  # Correct import for ContentFile
+
 @login_required
 @require_http_methods(["GET", "POST"])
 def edit_interpersonal(request, session_id):
@@ -719,19 +722,12 @@ def edit_interpersonal(request, session_id):
                 'id': question.id,
                 'order': question.order,
                 'transcription': question.transcription,
-                'audio_url': question.audio_file.url if question.audio_file else None,
-                'audio_file': question.audio_file,
+                'audio_file': question.audio_file,  # Pass the audio_file field directly
             })
-        
         context = {
             'session': session,
             'class_codes': class_codes,
             'questions': questions_data,
-            'questions_json': json.dumps([{
-                'id': q['id'],
-                'order': q['order'],
-                'audio_url': q['audio_url']
-            } for q in questions_data], cls=DjangoJSONEncoder),
         }
         return render(request, 'transcription/edit_interpersonal.html', context)
 
@@ -754,27 +750,20 @@ def edit_interpersonal(request, session_id):
                 else:
                     question = InterpersonalQuestion(session=session)
                 
-                question.order = question_data.get('order', question.order)
+                question.order = question_data.get('order')
                 question.transcription = question_data.get('transcription', '')
 
-                # Handle audio data
                 audio_data = question_data.get('audio_data')
-                if audio_data:
-                    if audio_data.startswith('data:audio'):
-                        # New recording provided
-                        format, audio_str = audio_data.split(';base64,')
-                        ext = format.split('/')[-1]
-                        # Delete old file if it exists
-                        if question.audio_file:
-                            question.audio_file.delete(save=False)
-                        audio_file = ContentFile(base64.b64decode(audio_str), 
-                                              name=f'question_{question.id or "new"}_{timezone.now().timestamp()}.{ext}')
-                        question.audio_file = audio_file
-                    # else: audio_data is URL of existing file, do nothing
-                elif audio_data == '':
-                    # Explicitly cleared audio
-                    if question.audio_file:
-                        question.audio_file.delete(save=False)
+                if audio_data and audio_data.startswith('data:audio'):
+                    format, audio_str = audio_data.split(';base64,')
+                    ext = format.split('/')[-1]
+                    audio_file = ContentFile(base64.b64decode(audio_str), name=f'question_{question.order}.{ext}')
+                    question.audio_file = audio_file
+                elif audio_data and not audio_data.startswith('data:audio'):
+                    # If audio_data is a URL, keep the existing file
+                    pass
+                else:
+                    # If no audio data is provided, clear the audio file
                     question.audio_file = None
 
                 question.save()
