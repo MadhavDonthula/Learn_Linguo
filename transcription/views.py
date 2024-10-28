@@ -97,6 +97,7 @@ logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
+@login_required
 @require_http_methods(["GET"])
 def interpersonal_session_details(request, session_id):
     session = get_object_or_404(InterpersonalSession, id=session_id)
@@ -108,9 +109,19 @@ def interpersonal_session_details(request, session_id):
     
     questions_data = []
     transcriptions = []  # Array to hold all transcriptions
+    
     for question in questions:
-        # Use the URL directly, no need to encode
-        audio_data = question.audio_file if question.audio_file else ''
+        # Generate full URL for audio file
+        audio_url = None
+        if question.audio_file:
+            # Check if it's already a full URL
+            if question.audio_file.startswith('http'):
+                audio_url = question.audio_file
+            else:
+                # Construct the full URL
+                audio_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{question.audio_file}"
+            
+            logger.info(f"Generated audio URL for question {question.id}: {audio_url}")
         
         # Append transcription to the separate array
         transcriptions.append(question.transcription if question.transcription else 'No transcription available')
@@ -118,10 +129,14 @@ def interpersonal_session_details(request, session_id):
         questions_data.append({
             'id': question.id,
             'order': question.order,
-            'audio_data': audio_data,  # This is now a URL
+            'audio_data': audio_url,  # Use the properly constructed URL
         })
     
     logger.info(f"Prepared {len(questions_data)} questions for session {session_id}")
+    
+    # Debug logging to verify audio URLs
+    for q in questions_data:
+        logger.info(f"Question {q['id']} audio data: {q['audio_data']}")
     
     context = {
         'session': session,
@@ -131,7 +146,6 @@ def interpersonal_session_details(request, session_id):
     }
     
     return render(request, 'transcription/interpersonal_session.html', context)
-
 @login_required(login_url="login")
 def index(request, assignment_id=None):
     if assignment_id:
