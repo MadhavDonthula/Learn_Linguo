@@ -232,7 +232,7 @@ from django.utils.safestring import mark_safe
 @admin.register(Assignment)
 class AssignmentAdmin(admin.ModelAdmin):
     inlines = [QuestionInline]
-    fields = ('title', 'description', 'due_date','language')
+    fields = ('title', 'description', 'due_date', 'language', 'class_code')
 
 from django.contrib import admin
 from django.urls import reverse

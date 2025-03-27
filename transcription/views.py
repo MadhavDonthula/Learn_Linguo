@@ -635,7 +635,7 @@ def create_interpersonal_view(request):
     return render(request, 'transcription/create_interpersonal.html', context)
 import json
 import base64
-import boto3
+ # import boto3 
 from botocore.exceptions import ClientError
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
