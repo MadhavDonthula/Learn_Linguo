@@ -220,12 +220,27 @@
           method: "POST",
           body: formData,
         })
-          .then((response) => response.json())
+          .then((response) => {
+            if (!response.ok) {
+              return response.json().then(errorData => {
+                console.error("Server error:", errorData);
+                alert("Server error: " + (errorData.error || "Unknown error"));
+                throw new Error(errorData.error || "Server error");
+              });
+            }
+            return response.json();
+          })
           .then((data) => {
+            console.log("Success response:", data);
             showResultTab(data);
             updateAttemptsLeft(questionId, micDiv);
           })
-          .catch((error) => console.error("Error:", error))
+          .catch((error) => {
+            console.error("Fetch error:", error);
+            if (!error.message.includes("Server error")) {
+              alert("Network error: " + error.message);
+            }
+          })
           .finally(() => {
             isSubmitting = false;
             micDiv.querySelector(".loading-animation").style.opacity = "0";
