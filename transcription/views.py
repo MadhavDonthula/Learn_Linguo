@@ -201,7 +201,10 @@ def save_audio(request):
                 temp_audio_file.write(audio_bytes)
                 temp_audio_file.flush()
 
-                client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+                api_key = os.environ.get('OPENAI_API_KEY')
+                if not api_key:
+                    return JsonResponse({"error": "OpenAI API key not configured"}, status=500)
+                client = OpenAI(api_key=api_key)
 
                 # Retrieve the assignment and question
                 assignment = get_object_or_404(Assignment, id=assignment_id)
@@ -236,7 +239,10 @@ def save_audio(request):
             })
 
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+            import traceback
+            print(f"Error in save_audio: {str(e)}")
+            print(f"Traceback: {traceback.format_exc()}")
+            return JsonResponse({"error": f"Server error: {str(e)}"}, status=500)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 @require_POST

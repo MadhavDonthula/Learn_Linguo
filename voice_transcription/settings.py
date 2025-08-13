@@ -15,8 +15,9 @@ import dj_database_url
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (only in development)
+if os.path.exists('.env'):
+    load_dotenv()
 
 
 
@@ -29,6 +30,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('SECRET_KEY', "django-insecure-qcpy-cu#igsxi36z%)z%)+5_al#1+o^@194kphg!&51es0z4w3")
+
+# Debug environment variables
+print(f"DEBUG: SECRET_KEY exists: {bool(os.environ.get('SECRET_KEY'))}")
+print(f"DEBUG: OPENAI_API_KEY exists: {bool(os.environ.get('OPENAI_API_KEY'))}")
+print(f"DEBUG: DATABASE_URL exists: {bool(os.environ.get('DATABASE_URL'))}")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
