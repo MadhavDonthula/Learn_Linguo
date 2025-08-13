@@ -107,8 +107,32 @@ DATABASES = {
 
 # Use environment variable for database URL
 DATABASE_URL = os.environ.get('DATABASE_URL')
+print(f"DEBUG: DATABASE_URL exists: {bool(DATABASE_URL)}")
 if DATABASE_URL:
-    DATABASES["default"] = dj_database_url.parse(DATABASE_URL)
+    try:
+        # Parse the database URL
+        db_config = dj_database_url.parse(DATABASE_URL)
+        
+        # Add connection settings for Render
+        db_config.update({
+            'CONN_MAX_AGE': 60,  # Keep connections alive for 60 seconds
+            'OPTIONS': {
+                'connect_timeout': 10,
+                'sslmode': 'require',  # Render requires SSL
+            }
+        })
+        
+        DATABASES["default"] = db_config
+        print("DEBUG: Database configuration successful")
+    except Exception as e:
+        print(f"DEBUG: Database configuration error: {e}")
+        # Fallback to SQLite for development
+        DATABASES["default"] = {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / "db.sqlite3",
+        }
+else:
+    print("DEBUG: No DATABASE_URL found, using SQLite")
 
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
