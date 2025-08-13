@@ -204,6 +204,9 @@ def save_audio(request):
                 api_key = os.environ.get('OPENAI_API_KEY')
                 if not api_key:
                     return JsonResponse({"error": "OpenAI API key not configured"}, status=500)
+                
+                # Clean the API key (remove any whitespace or newlines)
+                api_key = api_key.strip()
                 client = OpenAI(api_key=api_key)
 
                 # Retrieve the assignment and question
@@ -261,7 +264,8 @@ def save_interpersonal_audio(request):
                 temp_audio_file.write(audio_bytes)
                 temp_audio_file.flush()
                 
-                client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+                api_key = os.environ.get('OPENAI_API_KEY', '').strip()
+                client = OpenAI(api_key=api_key)
                 
                 # Retrieve the session and question
                 session = get_object_or_404(InterpersonalSession, id=session_id)
@@ -453,7 +457,8 @@ def check_pronunciation(request):
                     temp_audio_file.write(audio_bytes)
                     temp_audio_file.flush()
 
-                    client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+                    api_key = os.environ.get('OPENAI_API_KEY', '').strip()
+                    client = OpenAI(api_key=api_key)
 
                     flashcard = get_object_or_404(Flashcard, id=flashcard_id)
                     language = flashcard.flashcard_set.language
