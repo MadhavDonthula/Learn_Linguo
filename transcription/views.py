@@ -15,6 +15,7 @@ import re
 from difflib import SequenceMatcher
 from django.views.decorators.http import require_http_methods
 from django.core.files import File
+import os
 
 import logging
 
@@ -200,7 +201,7 @@ def save_audio(request):
                 temp_audio_file.write(audio_bytes)
                 temp_audio_file.flush()
 
-                client = OpenAI(api_key="sk-qtvZYUkCq-UovQC1v3ZvTzMeRSHgs_8TLZOM9HO88-T3BlbkFJ2FFPiJVX_qfjtsaUKBH-GJQtz9uQsdjdGoz8jmq1cA")
+                client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
                 # Retrieve the assignment and question
                 assignment = get_object_or_404(Assignment, id=assignment_id)
@@ -254,7 +255,7 @@ def save_interpersonal_audio(request):
                 temp_audio_file.write(audio_bytes)
                 temp_audio_file.flush()
                 
-                client = OpenAI(api_key="sk-qtvZYUkCq-UovQC1v3ZvTzMeRSHgs_8TLZOM9HO88-T3BlbkFJ2FFPiJVX_qfjtsaUKBH-GJQtz9uQsdjdGoz8jmq1cA")
+                client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
                 
                 # Retrieve the session and question
                 session = get_object_or_404(InterpersonalSession, id=session_id)
@@ -446,7 +447,7 @@ def check_pronunciation(request):
                     temp_audio_file.write(audio_bytes)
                     temp_audio_file.flush()
 
-                    client = OpenAI(api_key="sk-qtvZYUkCq-UovQC1v3ZvTzMeRSHgs_8TLZOM9HO88-T3BlbkFJ2FFPiJVX_qfjtsaUKBH-GJQtz9uQsdjdGoz8jmq1cA")
+                    client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
                     flashcard = get_object_or_404(Flashcard, id=flashcard_id)
                     language = flashcard.flashcard_set.language

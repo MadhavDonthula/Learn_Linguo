@@ -9,15 +9,15 @@ class Migration(migrations.Migration):
     operations = [
 
         migrations.RunSQL(
-            "DROP TABLE IF EXISTS transcription_team CASCADE;",
+            "DROP TABLE IF EXISTS transcription_team;",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            "DROP TABLE IF EXISTS transcription_team_players CASCADE;",
+            "DROP TABLE IF EXISTS transcription_team_players;",
             reverse_sql=migrations.RunSQL.noop,
         ),
         migrations.RunSQL(
-            "DROP TABLE IF EXISTS transcription_teammember CASCADE;",
+            "DROP TABLE IF EXISTS transcription_teammember;",
             reverse_sql=migrations.RunSQL.noop,
         ),
     ]
