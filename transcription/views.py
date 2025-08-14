@@ -21,7 +21,7 @@ import logging
 
 
 from openai import OpenAI
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts, InterpersonalSession, InterpersonalQuestion
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserClassEnrollment, UserFlashcardProgress, Question, UserQuestionProgress, UserQuestionAttempts, InterpersonalSession, InterpersonalQuestion, UserInterpersonalProgress
 from .forms import CreateUserForm
 
 from django.contrib.auth.models import User
@@ -87,7 +87,12 @@ def home(request):
                 UserClassEnrollment.objects.create(user=request.user, class_code=class_code)
             assignments = class_code.assignments.all()
             flashcard_sets = class_code.flashcard_sets.all()
-            return render(request, 'transcription/index.html', {'assignments': assignments, 'flashcard_sets': flashcard_sets})
+            interpersonal_sessions = InterpersonalSession.objects.filter(class_code=class_code)
+            return render(request, 'transcription/index.html', {
+                'assignments': assignments, 
+                'flashcard_sets': flashcard_sets,
+                'interpersonal_sessions': interpersonal_sessions
+            })
         except ClassCode.DoesNotExist:
             return render(request, 'transcription/home.html', {'error': 'Invalid class code'})
     
@@ -112,17 +117,29 @@ def interpersonal_session_details(request, session_id):
     transcriptions = []  # Array to hold all transcriptions
     
     for question in questions:
-        # Generate full URL for audio file
-        audio_url = None
+        # Generate full URL for teacher's audio file (the question)
+        teacher_audio_url = None
+        if question.teacher_audio_file:
+            # Check if it's already a full URL
+            if question.teacher_audio_file.startswith('http'):
+                teacher_audio_url = question.teacher_audio_file
+            else:
+                # Construct the full URL
+                teacher_audio_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{question.teacher_audio_file}"
+            
+            logger.info(f"Generated teacher audio URL for question {question.id}: {teacher_audio_url}")
+        
+        # Generate full URL for student's audio file (the response)
+        student_audio_url = None
         if question.audio_file:
             # Check if it's already a full URL
             if question.audio_file.startswith('http'):
-                audio_url = question.audio_file
+                student_audio_url = question.audio_file
             else:
                 # Construct the full URL
-                audio_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{question.audio_file}"
+                student_audio_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{question.audio_file}"
             
-            logger.info(f"Generated audio URL for question {question.id}: {audio_url}")
+            logger.info(f"Generated student audio URL for question {question.id}: {student_audio_url}")
         
         # Append transcription to the separate array
         transcriptions.append(question.transcription if question.transcription else 'No transcription available')
@@ -130,14 +147,17 @@ def interpersonal_session_details(request, session_id):
         questions_data.append({
             'id': question.id,
             'order': question.order,
-            'audio_data': audio_url,  # Use the properly constructed URL
+            'teacher_audio_data': teacher_audio_url,  # Teacher's question audio
+            'student_audio_data': student_audio_url,  # Student's response audio
+            'teacher_transcription': question.teacher_transcription or 'No question text available',
         })
     
     logger.info(f"Prepared {len(questions_data)} questions for session {session_id}")
     
     # Debug logging to verify audio URLs
     for q in questions_data:
-        logger.info(f"Question {q['id']} audio data: {q['audio_data']}")
+        logger.info(f"Question {q['id']} teacher audio data: {q['teacher_audio_data']}")
+        logger.info(f"Question {q['id']} student audio data: {q['student_audio_data']}")
     
     context = {
         'session': session,
@@ -260,6 +280,12 @@ def save_interpersonal_audio(request):
         
         try:
             audio_bytes = base64.b64decode(audio_data)
+            
+            # Save audio file to cloud storage
+            from .teacher_views import upload_audio_to_cloud
+            file_name = f'interpersonal_responses/student_response_{session_id}_{question_id}_{int(timezone.now().timestamp())}.wav'
+            audio_url = upload_audio_to_cloud(audio_bytes, file_name)
+            
             with NamedTemporaryFile(suffix=".wav", delete=True) as temp_audio_file:
                 temp_audio_file.write(audio_bytes)
                 temp_audio_file.flush()
@@ -284,8 +310,13 @@ def save_interpersonal_audio(request):
             
             transcribed_text = transcription.strip()
             
+            # Save the transcription and audio URL to the question
+            selected_question.transcription = transcribed_text
+            selected_question.audio_file = audio_url
+            selected_question.save()
+            
             # Perform AI evaluation
-            evaluation = get_ai_evaluation(client, selected_question.transcription, transcribed_text, session.language)
+            evaluation = get_ai_evaluation(client, selected_question.teacher_transcription, transcribed_text, session.language)
             
             # Parse the evaluation response
             evaluation_lines = evaluation.split('\n')
@@ -296,7 +327,7 @@ def save_interpersonal_audio(request):
                 "transcribed_text": transcribed_text,
                 "score": score,
                 "feedback": feedback,
-                "question": selected_question.transcription,
+                "question": selected_question.teacher_transcription,
             })
         
         except Exception as e:

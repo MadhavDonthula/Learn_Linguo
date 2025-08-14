@@ -3,7 +3,7 @@ from django.urls import path, reverse
 from django.shortcuts import render, redirect
 from django.http import Http404
 from django.utils.html import format_html
-from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question, UserQuestionProgress, UserInterpersonalProgress
+from .models import Assignment, ClassCode, FlashcardSet, Flashcard, UserFlashcardProgress, UserClassEnrollment, Question, UserQuestionProgress, UserInterpersonalProgress, InterpersonalSession, InterpersonalQuestion
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.shortcuts import render, get_object_or_404
@@ -67,6 +67,8 @@ class ClassCodeAdmin(admin.ModelAdmin):
         return custom_urls + urls
 # Register the ClassCodeAdmin with the model
 admin.site.register(ClassCode, ClassCodeAdmin)
+
+
 
 def class_code_progress_view(request, class_code_id):
     class_code = get_object_or_404(ClassCode, id=class_code_id)
@@ -251,26 +253,26 @@ class InterpersonalQuestionInline(admin.TabularInline):
         return False
 @admin.register(InterpersonalSession)
 class InterpersonalSessionAdmin(admin.ModelAdmin):
-    list_display = ('title', 'created_at', 'language', 'class_code', 'view_sessions_link')
+    list_display = ('title', 'created_at', 'language', 'class_code', 'teacher_interface_link')
     list_filter = ('language', 'class_code')
     search_fields = ('title', 'class_code__code')
-    readonly_fields = ('title', 'created_at', 'language', 'class_code')
-    inlines = [InterpersonalQuestionInline]
+    readonly_fields = ('created_at',)
+    actions = ['open_teacher_interface']
 
-    def has_add_permission(self, request):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return True
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def view_sessions_link(self, obj):
-        url = reverse('admin:view_interpersonal_sessions')
-        return format_html('<a class="button" href="{}">Create Sessions</a>', url)
-    view_sessions_link.short_description = 'Create'
-    view_sessions_link.allow_tags = True
+    def teacher_interface_link(self, obj):
+        url = reverse('edit_interpersonal_session', args=[obj.id])
+        return format_html('<a class="button" href="{}" target="_blank">Edit with Teacher Interface</a>', url)
+    teacher_interface_link.short_description = 'Teacher Interface'
+    teacher_interface_link.allow_tags = True
+    
+    def open_teacher_interface(self, request, queryset):
+        if queryset.count() == 1:
+            session = queryset.first()
+            url = reverse('edit_interpersonal_session', args=[session.id])
+            return redirect(url)
+        else:
+            self.message_user(request, "Please select exactly one session to edit.")
+    open_teacher_interface.short_description = "Open Teacher Interface for selected session"
 
     def get_urls(self):
         urls = super().get_urls()
@@ -296,3 +298,14 @@ class InterpersonalSessionAdmin(admin.ModelAdmin):
         for obj in queryset:
             obj.delete()
     delete_selected.short_description = "Delete selected sessions"
+
+@admin.register(InterpersonalQuestion)
+class InterpersonalQuestionAdmin(admin.ModelAdmin):
+    list_display = ('session', 'order', 'teacher_transcription', 'has_teacher_audio')
+    list_filter = ('session', 'order')
+    search_fields = ('teacher_transcription', 'session__title')
+    
+    def has_teacher_audio(self, obj):
+        return bool(obj.teacher_audio_file)
+    has_teacher_audio.boolean = True
+    has_teacher_audio.short_description = 'Has Teacher Audio'

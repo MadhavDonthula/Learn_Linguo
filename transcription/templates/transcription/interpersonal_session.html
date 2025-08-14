@@ -231,8 +231,7 @@
     <div class="loading-spinner"></div>
 </div>
 
-{{ questions_data|safe }}
-{{ transcriptions|safe }}
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         
@@ -328,16 +327,21 @@
     }
     
     function processAudioBlob() {
+        console.log('Processing audio blob, size:', audioBlob.size);
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = function() {
             const base64AudioData = reader.result.split(',')[1];
+            console.log('Audio data converted to base64, length:', base64AudioData.length);
             submitAudioResponse(base64AudioData);
         };
     }
 
     function submitAudioResponse(base64AudioData) {
-        console.log("Submitting audio response");
+        console.log("Submitting audio response for question index:", currentQuestionIndex);
+        console.log("Question ID:", questions[currentQuestionIndex].id);
+        console.log("Audio data length:", base64AudioData.length);
+        
         document.getElementById("audio_data").value = base64AudioData;
         document.getElementById("question_id").value = questions[currentQuestionIndex].id;
     
@@ -371,22 +375,36 @@
         });
     }
 
-    function updateSummary(data) {
-        const currentTranscription = transcriptions[currentQuestionIndex];
+            function updateSummary(data) {
+            console.log('Updating summary for question index:', currentQuestionIndex);
+            console.log('Response data:', data);
+            
+            // Check if we already have a response for this question
+            if (allResponses.length > currentQuestionIndex) {
+                // Replace existing response
+                allResponses[currentQuestionIndex] = {
+                    question: data.question,
+                    answer: data.transcribed_text,
+                    score: data.score,
+                    feedback: data.feedback
+                };
+            } else {
+                // Add new response
+                allResponses.push({
+                    question: data.question,
+                    answer: data.transcribed_text,
+                    score: data.score,
+                    feedback: data.feedback
+                });
+            }
         
-        allResponses.push({
-            question: data.question,
-            answer: data.transcribed_text,
-            score: data.score,
-            feedback: data.feedback
-        });
-    
-        console.log('Stored responses:', allResponses);
-    
-        if (allResponses.length === totalQuestions) {
-            displayFinalSummary();
+            console.log('Stored responses:', allResponses);
+            console.log('Total responses:', allResponses.length, 'Total questions:', totalQuestions);
+        
+            if (allResponses.length === totalQuestions) {
+                displayFinalSummary();
+            }
         }
-    }
 
     function displayFinalSummary() {
         document.getElementById('siteWideLoading').style.display = 'flex';
@@ -414,15 +432,24 @@
     async function playNextQuestion() {
         if (currentQuestionIndex < questions.length) {
             const question = questions[currentQuestionIndex];
-            questionText.textContent = `Question ${currentQuestionIndex + 1}`;
+            
+            // Display question text
+            questionText.textContent = question.teacher_transcription || `Question ${currentQuestionIndex + 1}`;
     
-            console.log('Attempting to play audio:', question.audio_data);
+            console.log('Attempting to play teacher audio:', question.teacher_audio_data);
     
             try {
                 micContainer.style.display = 'block';
                 questionContainer.style.backgroundColor = '#e6f7ff';
-                await playAudio(question.audio_data);
-                console.log('Audio played successfully');
+                
+                // Play teacher's audio if available
+                if (question.teacher_audio_data) {
+                    await playAudio(question.teacher_audio_data);
+                    console.log('Teacher audio played successfully');
+                } else {
+                    console.log('No teacher audio available, proceeding to recording');
+                }
+                
                 startRecording();
             } catch (error) {
                 console.error('Error in playNextQuestion:', error);
@@ -435,7 +462,9 @@
     }
 
     function moveToNextQuestion() {
+        console.log('Moving to next question. Current index:', currentQuestionIndex, 'Total questions:', questions.length);
         currentQuestionIndex++;
+        console.log('New question index:', currentQuestionIndex);
         if (currentQuestionIndex < questions.length) {
             setTimeout(playNextQuestion, 500);
         } else {

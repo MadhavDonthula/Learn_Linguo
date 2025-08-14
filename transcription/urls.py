@@ -1,6 +1,7 @@
 from django.urls import path
 from django.contrib import admin
 from . import views
+from . import teacher_views
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -28,12 +29,14 @@ urlpatterns = [
             path('interpersonal_session/<int:session_id>/', views.interpersonal_session_details, name='interpersonal_session_details'),
                 path('save_interpersonal_audio/', views.save_interpersonal_audio, name='save_interpersonal_audio'),
     path('update_interpersonal_progress/', views.update_interpersonal_progress, name='update_interpersonal_progress'),
-path("update_interpersonal_question_status/", views.update_interpersonal_question_status, name="update_interpersonal_question_status")
+path("update_interpersonal_question_status/", views.update_interpersonal_question_status, name="update_interpersonal_question_status"),
 
-
-
-
-
-
+    # Teacher interface URLs
+    path('teacher/dashboard/', teacher_views.teacher_dashboard, name='teacher_dashboard'),
+    path('teacher/interpersonal/create/', teacher_views.create_interpersonal_session, name='create_interpersonal_session'),
+    path('teacher/interpersonal/edit/<int:session_id>/', teacher_views.edit_interpersonal_session, name='edit_interpersonal_session'),
+    path('teacher/save_audio/', teacher_views.save_teacher_audio, name='save_teacher_audio'),
+    path('teacher/delete_question/<int:question_id>/', teacher_views.delete_question, name='delete_question'),
+    path('teacher/delete_session/<int:session_id>/', teacher_views.delete_session, name='delete_session'),
 ]
 

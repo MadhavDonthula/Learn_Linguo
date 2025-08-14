@@ -181,9 +181,11 @@ class InterpersonalSession(models.Model):
         return self.title
 class InterpersonalQuestion(models.Model):
     session = models.ForeignKey(InterpersonalSession, on_delete=models.CASCADE, related_name='questions')
-    audio_file = models.URLField(max_length=500)  # Changed to URLField
+    audio_file = models.URLField(max_length=500, blank=True)  # Student audio file
+    teacher_audio_file = models.URLField(max_length=500, blank=True)  # Teacher's question audio
     order = models.PositiveIntegerField()
-    transcription = models.TextField(blank=True)
+    transcription = models.TextField(blank=True)  # Student's transcription
+    teacher_transcription = models.TextField(blank=True)  # Teacher's question text
 
     class Meta:
         ordering = ['order']
