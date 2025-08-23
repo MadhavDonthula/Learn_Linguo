@@ -136,8 +136,8 @@ def interpersonal_session_details(request, session_id):
             if question.audio_file.startswith('http'):
                 student_audio_url = question.audio_file
             else:
-                # Construct the full URL
-                student_audio_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{question.audio_file}"
+                # Construct the full URL - temporarily disabled S3
+                student_audio_url = None
             
             logger.info(f"Generated student audio URL for question {question.id}: {student_audio_url}")
         
@@ -678,8 +678,8 @@ def create_interpersonal_view(request):
     return render(request, 'transcription/create_interpersonal.html', context)
 import json
 import base64
-import boto3 
-from botocore.exceptions import ClientError
+# import boto3  # Temporarily disabled 
+# from botocore.exceptions import ClientError  # Temporarily disabled
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.conf import settings
@@ -689,14 +689,14 @@ from io import BytesIO
 
 logger = logging.getLogger(__name__)
 
-# Initialize S3 client
-s3_client = boto3.client(
-    's3',
-    endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-    aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-    region_name=settings.AWS_S3_REGION_NAME
-)
+# Initialize S3 client - temporarily disabled
+# s3_client = boto3.client(
+#     's3',
+#     endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+#     aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+#     aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+#     region_name=settings.AWS_S3_REGION_NAME
+# )
 
 def add_interpersonal(request):
     if request.method == "GET":
@@ -733,30 +733,30 @@ def add_interpersonal(request):
                     ext = format.split('/')[-1]
                     audio_bytes = base64.b64decode(audio_str)
 
-                    # Upload to B2
-                    file_name = f'interpersonal_questions/question_{session.id}_{question_data.get("order")}.{ext}'
-                    try:
-                        logger.info(f"Attempting to upload file: {file_name}")
-                        s3_client.upload_fileobj(
-                            BytesIO(audio_bytes),
-                            settings.AWS_STORAGE_BUCKET_NAME,
-                            file_name,
-                            ExtraArgs={'ContentType': f'audio/{ext}'}
-                        )
-                        logger.info(f"Successfully uploaded file: {file_name}")
-                    except ClientError as e:
-                        logger.error(f"ClientError uploading file to B2: {str(e)}")
-                        return JsonResponse({'status': 'error', 'message': f'Failed to upload audio file: {str(e)}'}, status=500)
-                    except Exception as e:
-                        logger.error(f"Unexpected error uploading file to B2: {str(e)}")
-                        return JsonResponse({'status': 'error', 'message': f'Unexpected error uploading audio file: {str(e)}'}, status=500)
+                    # Upload to B2 - temporarily disabled
+                    # file_name = f'interpersonal_questions/question_{session.id}_{question_data.get("order")}.{ext}'
+                    # try:
+                    #     logger.info(f"Attempting to upload file: {file_name}")
+                    #     s3_client.upload_fileobj(
+                    #         BytesIO(audio_bytes),
+                    #         settings.AWS_STORAGE_BUCKET_NAME,
+                    #         file_name,
+                    #         ExtraArgs={'ContentType': f'audio/{ext}'}
+                    #     )
+                    #     logger.info(f"Successfully uploaded file: {file_name}")
+                    # except ClientError as e:
+                    #     logger.error(f"ClientError uploading file to B2: {str(e)}")
+                    #     return JsonResponse({'status': 'error', 'message': f'Failed to upload audio file: {str(e)}'}, status=500)
+                    # except Exception as e:
+                    #     logger.error(f"Unexpected error uploading file to B2: {str(e)}")
+                    #     return JsonResponse({'status': 'error', 'message': f'Unexpected error uploading audio file: {str(e)}'}, status=500)
 
                     # Create the InterpersonalQuestion object
                     question = InterpersonalQuestion.objects.create(
                         session=session,
                         order=question_data.get('order'),
                         transcription=question_data.get('transcription', ''),
-                        audio_file=f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{file_name}"
+                        audio_file=None  # Temporarily disabled S3
                     )
 
             return JsonResponse({'status': 'success', 'message': 'Session created successfully'})
@@ -784,8 +784,8 @@ def edit_interpersonal(request, session_id):
                 if question.audio_file.startswith('http'):
                     audio_url = question.audio_file
                 else:
-                    # Construct the full URL
-                    audio_url = f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{question.audio_file}"
+                    # Construct the full URL - temporarily disabled S3
+                    audio_url = None
             
             questions_data.append({
                 'id': question.id,

@@ -2,6 +2,7 @@ from django.urls import path
 from django.contrib import admin
 from . import views
 from . import teacher_views
+from . import trial_views
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -38,5 +39,8 @@ path("update_interpersonal_question_status/", views.update_interpersonal_questio
     path('teacher/save_audio/', teacher_views.save_teacher_audio, name='save_teacher_audio'),
     path('teacher/delete_question/<int:question_id>/', teacher_views.delete_question, name='delete_question'),
     path('teacher/delete_session/<int:session_id>/', teacher_views.delete_session, name='delete_session'),
+    
+    # Trial page
+    path('trail/', trial_views.trial_page, name='trail')
 ]
 

@@ -9,8 +9,8 @@ import os
 from tempfile import NamedTemporaryFile
 from .models import InterpersonalSession, InterpersonalQuestion, ClassCode
 from .forms import InterpersonalSessionForm, InterpersonalQuestionForm
-import boto3
-from botocore.exceptions import NoCredentialsError
+# import boto3  # Temporarily disabled
+# from botocore.exceptions import NoCredentialsError  # Temporarily disabled
 import uuid
 
 def is_teacher(user):

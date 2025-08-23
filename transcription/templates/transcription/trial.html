@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeLinguo Trial</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+            height: calc(100vh - 40px);
+        }
+
+        .section {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: transform 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .recording-section {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .record-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+            margin: 10px;
+        }
+
+        .record-btn:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+
+        .record-btn.recording {
+            background: #27ae60;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .result-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-item {
+            margin-bottom: 15px;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            color: #666;
+            line-height: 1.5;
+        }
+
+        .score {
+            font-size: 18px;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .feedback {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e1e5e9;
+        }
+
+        .status-message {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .class-code {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Teacher Section -->
+        <div class="section">
+            <h1 class="section-title">👨‍🏫 Teacher Dashboard</h1>
+            
+            <form id="teacherForm">
+                <div class="form-group">
+                    <label for="question_text">Question:</label>
+                    <textarea id="question_text" name="question_text" placeholder="Enter your question here..." required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="expected_answer">Expected Answer:</label>
+                    <textarea id="expected_answer" name="expected_answer" placeholder="Enter the expected answer..." required></textarea>
+                </div>
+                
+                <button type="submit" class="btn">Create Question</button>
+            </form>
+            
+            <div id="teacherMessage"></div>
+        </div>
+
+        <!-- Student Section -->
+        <div class="section">
+            <h1 class="section-title">👨‍🎓 Student Dashboard</h1>
+            
+            <div class="class-code">
+                Class Code: TEST1
+            </div>
+            
+            <div class="recording-section">
+                <button id="recordBtn" class="record-btn">🎤 Start Recording</button>
+                <button id="stopBtn" class="record-btn" style="display: none;">⏹️ Stop Recording</button>
+            </div>
+            
+            <div id="resultSection" class="result-section" style="display: none;">
+                <div class="result-item">
+                    <div class="result-label">Question:</div>
+                    <div class="result-value" id="resultQuestion"></div>
+                </div>
+                
+                <div class="result-item">
+                    <div class="result-label">Your Answer:</div>
+                    <div class="result-value" id="resultAnswer"></div>
+                </div>
+                
+                <div class="result-item">
+                    <div class="result-label">Score:</div>
+                    <div class="result-value score" id="resultScore"></div>
+                </div>
+                
+                <div class="result-item">
+                    <div class="result-label">Feedback:</div>
+                    <div class="result-value feedback" id="resultFeedback"></div>
+                </div>
+            </div>
+            
+            <div id="studentMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        // Teacher form submission
+        document.getElementById('teacherForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const questionText = document.getElementById('question_text').value;
+            const expectedAnswer = document.getElementById('expected_answer').value;
+            
+            if (!questionText || !expectedAnswer) {
+                showMessage('teacherMessage', 'Please fill in both fields.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/trail/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: new URLSearchParams({
+                        'action': 'create_question',
+                        'question_text': questionText,
+                        'expected_answer': expectedAnswer
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    showMessage('teacherMessage', data.message, 'success');
+                    document.getElementById('teacherForm').reset();
+                } else {
+                    showMessage('teacherMessage', data.message, 'error');
+                }
+            } catch (error) {
+                showMessage('teacherMessage', 'Error creating question: ' + error.message, 'error');
+            }
+        });
+
+        // Recording functionality
+        document.getElementById('recordBtn').addEventListener('click', startRecording);
+        document.getElementById('stopBtn').addEventListener('click', stopRecording);
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    await submitAudio(audioBlob);
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+                document.getElementById('recordBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('recordBtn').classList.add('recording');
+                
+            } catch (error) {
+                showMessage('studentMessage', 'Error accessing microphone: ' + error.message, 'error');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                
+                isRecording = false;
+                document.getElementById('recordBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'none';
+                document.getElementById('recordBtn').classList.remove('recording');
+            }
+        }
+
+        async function submitAudio(audioBlob) {
+            try {
+                const reader = new FileReader();
+                reader.onload = async function() {
+                    const base64Audio = reader.result.split(',')[1];
+                    
+                    const response = await fetch('/trail/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: new URLSearchParams({
+                            'action': 'submit_audio',
+                            'audio_data': base64Audio
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        showMessage('studentMessage', data.error, 'error');
+                    } else {
+                        displayResults(data);
+                    }
+                };
+                reader.readAsDataURL(audioBlob);
+                
+            } catch (error) {
+                showMessage('studentMessage', 'Error submitting audio: ' + error.message, 'error');
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('resultQuestion').textContent = data.question;
+            document.getElementById('resultAnswer').textContent = data.transcribed_text;
+            document.getElementById('resultScore').textContent = data.score;
+            document.getElementById('resultFeedback').textContent = data.feedback;
+            
+            document.getElementById('resultSection').style.display = 'block';
+            showMessage('studentMessage', 'Audio processed successfully!', 'success');
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            
+            setTimeout(() => {
+                element.innerHTML = '';
+            }, 5000);
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html> 
