@@ -5,11 +5,11 @@ from django.views.decorators.http import require_http_methods
 from tempfile import NamedTemporaryFile
 import base64
 import os
+import json
 from openai import OpenAI
-from .models import Assignment, ClassCode, Question
 
 def get_ai_evaluation_trial(client, question, student_answer, language):
-    """Trial version of AI evaluation without cloud storage dependencies"""
+    """Simple AI evaluation for trial"""
     language_name = "French" if language == "fr" else "Spanish"
     
     prompt = f"""As a {language_name} teacher, evaluate:
@@ -45,7 +45,7 @@ def get_ai_evaluation_trial(client, question, student_answer, language):
 @csrf_exempt
 @require_http_methods(["GET", "POST"])
 def trial_page(request):
-    """Trial page with teacher dashboard on left and student dashboard on right"""
+    """Simple trial page with teacher and student sections - session-based storage"""
     if request.method == "POST":
         action = request.POST.get('action')
         
@@ -54,22 +54,18 @@ def trial_page(request):
             expected_answer = request.POST.get('expected_answer')
             
             if question_text and expected_answer:
-                trial_class, created = ClassCode.objects.get_or_create(
-                    code='TEST1',
-                    defaults={'name': 'Trial Class', 'language': 'fr'}
-                )
+                # Store questions in session instead of database
+                if 'trial_questions' not in request.session:
+                    request.session['trial_questions'] = []
                 
-                trial_assignment, created = Assignment.objects.get_or_create(
-                    title='Trial Assignment',
-                    class_code=trial_class,
-                    defaults={'language': 'fr'}
-                )
+                new_question = {
+                    'id': len(request.session['trial_questions']) + 1,
+                    'question_text': question_text,
+                    'expected_answer': expected_answer
+                }
                 
-                Question.objects.create(
-                    assignment=trial_assignment,
-                    question_text=question_text,
-                    expected_answer=expected_answer
-                )
+                request.session['trial_questions'].append(new_question)
+                request.session.modified = True
                 
                 return JsonResponse({'status': 'success', 'message': 'Question created successfully!'})
             else:
@@ -77,8 +73,9 @@ def trial_page(request):
         
         elif action == 'submit_audio':
             audio_data = request.POST.get('audio_data')
+            question_id = request.POST.get('question_id')
             
-            if audio_data:
+            if audio_data and question_id:
                 try:
                     audio_bytes = base64.b64decode(audio_data)
                     
@@ -89,23 +86,28 @@ def trial_page(request):
                         api_key = os.environ.get('OPENAI_API_KEY', '').strip()
                         client = OpenAI(api_key=api_key)
                         
-                        trial_class = ClassCode.objects.get(code='TEST1')
-                        trial_assignment = Assignment.objects.get(title='Trial Assignment', class_code=trial_class)
-                        question = trial_assignment.questions.first()
+                        # Get question from session
+                        trial_questions = request.session.get('trial_questions', [])
+                        question_id = int(question_id)
                         
-                        if question:
+                        if question_id <= len(trial_questions):
+                            question = trial_questions[question_id - 1]
+                            
+                            # Transcribe audio
                             with open(temp_audio_file.name, "rb") as wav_file:
                                 transcription = client.audio.transcriptions.create(
                                     model="whisper-1",
                                     file=wav_file,
                                     response_format="text",
-                                    language=trial_assignment.language,
+                                    language="fr",  # Default to French for trial
                                 )
                             
                             transcribed_text = transcription.strip()
                             
-                            evaluation = get_ai_evaluation_trial(client, question.question_text, transcribed_text, trial_assignment.language)
+                            # Get AI evaluation
+                            evaluation = get_ai_evaluation_trial(client, question['question_text'], transcribed_text, "fr")
                             
+                            # Parse evaluation
                             evaluation_lines = evaluation.split('\n')
                             score = evaluation_lines[0].split(':')[1].strip()
                             feedback = evaluation_lines[1].split(':')[1].strip()
@@ -114,27 +116,27 @@ def trial_page(request):
                                 "transcribed_text": transcribed_text,
                                 "score": score,
                                 "feedback": feedback,
-                                "question": question.question_text,
+                                "question": question['question_text'],
                             })
                         else:
-                            return JsonResponse({"error": "No questions available for trial."}, status=400)
+                            return JsonResponse({"error": "Question not found."}, status=400)
                             
                 except Exception as e:
                     return JsonResponse({"error": f"Server error: {str(e)}"}, status=500)
             else:
-                return JsonResponse({"error": "No audio data provided."}, status=400)
+                return JsonResponse({"error": "No audio data or question ID provided."}, status=400)
+        
+        elif action == 'clear_questions':
+            # Clear all trial questions from session
+            if 'trial_questions' in request.session:
+                del request.session['trial_questions']
+                request.session.modified = True
+            
+            return JsonResponse({'status': 'success', 'message': 'All questions cleared successfully!'})
     
-    try:
-        trial_class = ClassCode.objects.get(code='TEST1')
-        trial_assignment = Assignment.objects.get(title='Trial Assignment', class_code=trial_class)
-        questions = trial_assignment.questions.all()
-    except (ClassCode.DoesNotExist, Assignment.DoesNotExist):
-        trial_class = None
-        trial_assignment = None
-        questions = []
+    # GET request - show the trial page
+    trial_questions = request.session.get('trial_questions', [])
     
     return render(request, 'transcription/trial.html', {
-        'trial_class': trial_class,
-        'trial_assignment': trial_assignment,
-        'questions': questions
+        'questions': trial_questions
     }) 

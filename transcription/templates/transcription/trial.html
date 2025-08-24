@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CodeLinguo Trial</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -12,15 +13,17 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: "Poppins", sans-serif;
             min-height: 100vh;
+            background: #1e3a8a;
+            background: radial-gradient(circle, #1e3a8a 0%, #0f172a 100%);
+            color: #ffffff;
             padding: 20px;
         }
 
         .container {
             display: flex;
-            gap: 20px;
+            gap: 2rem;
             max-width: 1400px;
             margin: 0 auto;
             height: calc(100vh - 40px);
@@ -28,178 +31,821 @@
 
         .section {
             flex: 1;
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background-color: rgba(30, 58, 138, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             display: flex;
             flex-direction: column;
         }
 
         .section-title {
-            font-size: 24px;
+            font-size: 2.5rem;
             font-weight: 600;
-            color: #333;
-            margin-bottom: 20px;
+            color: #ffffff;
+            margin-bottom: 2rem;
             text-align: center;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #667eea;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 1.5rem;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #555;
+            margin-bottom: 0.5rem;
+            font-weight: 400;
+            color: #ffffff;
+            font-size: 1rem;
         }
 
         input[type="text"], textarea {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            font-size: 14px;
-            transition: border-color 0.3s;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 10px;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
         }
 
         input[type="text"]:focus, textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        input[type="text"]::placeholder, textarea::placeholder {
+            color: rgba(255, 255, 255, 0.7);
         }
 
         textarea {
             resize: vertical;
-            min-height: 100px;
+            min-height: 120px;
         }
 
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: rgba(255, 255, 255, 0.2);
             color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 1rem 2rem;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 1rem;
             font-weight: 500;
-            transition: transform 0.2s;
+            transition: all 0.3s ease;
             width: 100%;
+            backdrop-filter: blur(10px);
         }
 
         .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
             transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(31, 38, 135, 0.4);
         }
 
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .recording-section {
-            text-align: center;
-            margin: 20px 0;
-        }
-
-        .record-btn {
-            background: #e74c3c;
+        .class-code {
+            background: rgba(255, 255, 255, 0.1);
             color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 50px;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-weight: 600;
+            text-align: center;
+            margin: 1rem 0;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        /* Question blocks styling - matching assignment format */
+        .questions-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem 0;
+        }
+
+        .question-block {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .question-block:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(31, 38, 135, 0.5);
+        }
+
+        .question-text {
+            font-size: 1.1rem;
+            font-weight: 400;
+            color: #ffffff;
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+            text-align: center;
+        }
+
+        .question-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .mic {
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 500;
-            transition: all 0.3s;
-            margin: 10px;
+            position: relative;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
         }
 
-        .record-btn:hover {
-            background: #c0392b;
-            transform: scale(1.05);
+        .mic:hover {
+            background: rgba(255, 255, 255, 0.3);
         }
 
-        .record-btn.recording {
-            background: #27ae60;
-            animation: pulse 1.5s infinite;
+        .mic-icon {
+            width: 30px;
+            height: 30px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z'%3E%3C/path%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        .loading-animation {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid transparent;
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 0, 0, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 0, 0, 0);
+            }
+        }
+
+        .mic.recording {
+            animation: pulse 1.5s infinite;
+            background: rgba(255, 0, 0, 0.5);
+        }
+
+        .mic.recording .loading-animation {
+            opacity: 1;
+        }
+
+        .mic.processing {
+            animation: pulse 1s infinite;
+            background: rgba(59, 130, 246, 0.5);
+            pointer-events: none;
+        }
+
+        .mic.processing .loading-animation {
+            opacity: 1;
         }
 
         .result-section {
-            margin-top: 20px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border-left: 4px solid rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            display: none;
+            width: 100%;
         }
 
         .result-item {
-            margin-bottom: 15px;
+            margin-bottom: 1rem;
         }
 
         .result-label {
             font-weight: 600;
-            color: #333;
-            margin-bottom: 5px;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
         }
 
         .result-value {
-            color: #666;
+            color: rgba(255, 255, 255, 0.9);
             line-height: 1.5;
+            font-size: 0.95rem;
         }
 
         .score {
-            font-size: 18px;
+            font-size: 1.2rem;
             font-weight: 600;
-            color: #667eea;
+            color: #ffffff;
         }
 
         .feedback {
-            background: white;
-            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
             border-radius: 8px;
-            border: 1px solid #e1e5e9;
+            border: 1px solid rgba(255, 255, 255, 0.18);
         }
 
         .status-message {
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
             text-align: center;
+            backdrop-filter: blur(10px);
         }
 
         .status-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: rgba(34, 197, 94, 0.2);
+            color: #ffffff;
+            border: 1px solid rgba(34, 197, 94, 0.3);
         }
 
         .status-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: rgba(239, 68, 68, 0.2);
+            color: #ffffff;
+            border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
-        .class-code {
-            background: #667eea;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 25px;
-            font-weight: 600;
+        .clear-btn {
+            background: rgba(239, 68, 68, 0.2) !important;
+            border: 1px solid rgba(239, 68, 68, 0.3) !important;
+        }
+
+        .clear-btn:hover {
+            background: rgba(239, 68, 68, 0.3) !important;
+        }
+
+        .session-notice {
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffffff;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
             text-align: center;
-            margin: 20px 0;
+        }
+
+        .loading-message {
+            background: rgba(59, 130, 246, 0.3);
+            color: #ffffff;
+            border: 2px solid rgba(59, 130, 246, 0.5);
+            border-radius: 15px;
+            margin: 1rem 0;
+            animation: pulse 2s infinite;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .no-questions {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+            padding: 3rem 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Scrollbar styling */
+        .questions-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .questions-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .questions-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        .questions-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .instructions-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .instructions-panel h3 {
+            margin-top: 0;
+            margin-bottom: 1rem;
+            color: #ffffff;
+            font-size: 1.2rem;
+        }
+
+        .instructions-panel ol {
+            padding-left: 1.5rem;
+            margin-bottom: 0;
+        }
+
+        .instructions-panel li {
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .page-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(30, 58, 138, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            transition: opacity 0.3s ease;
+        }
+
+        .page-loading-content {
+            text-align: center;
+            color: #ffffff;
+        }
+
+        .page-loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn.loading {
+            position: relative;
+            color: transparent;
+        }
+
+        .btn.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Mobile Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                flex-direction: column;
+                height: auto;
+                gap: 1rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+                margin-bottom: 1rem;
+            }
+
+            .section-title {
+                font-size: 1.8rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .form-group {
+                margin-bottom: 1rem;
+            }
+
+            input[type="text"], textarea {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+            }
+
+            textarea {
+                min-height: 100px;
+            }
+
+            .btn {
+                padding: 0.75rem 1.5rem;
+                font-size: 0.9rem;
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+
+            .clear-btn {
+                width: 100%;
+                margin-top: 0.5rem;
+            }
+
+            .instructions-panel {
+                padding: 1rem;
+                margin: 0.5rem 0;
+            }
+
+            .instructions-panel h3 {
+                font-size: 1.1rem;
+            }
+
+            .instructions-panel li {
+                font-size: 0.9rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .session-notice {
+                padding: 0.5rem;
+                font-size: 0.8rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .class-code {
+                padding: 0.75rem;
+                font-size: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .question-block {
+                padding: 1rem;
+                margin-bottom: 1rem;
+            }
+
+            .question-text {
+                font-size: 0.95rem;
+                margin-bottom: 1rem;
+            }
+
+            .mic {
+                width: 50px;
+                height: 50px;
+            }
+
+            .mic-icon {
+                width: 25px;
+                height: 25px;
+            }
+
+            .result-section {
+                padding: 1rem;
+                margin-top: 1rem;
+            }
+
+            .result-item {
+                margin-bottom: 0.75rem;
+            }
+
+            .result-label {
+                font-size: 0.9rem;
+            }
+
+            .result-value {
+                font-size: 0.85rem;
+            }
+
+            .score {
+                font-size: 1.1rem;
+            }
+
+            .feedback {
+                padding: 0.75rem;
+                font-size: 0.85rem;
+            }
+
+            .loading-message {
+                padding: 1rem;
+                margin: 0.5rem 0;
+            }
+
+            .loading-message div {
+                padding: 1rem !important;
+            }
+
+            .loading-message div div:first-child {
+                font-size: 2rem !important;
+            }
+
+            .loading-message div div:nth-child(2) {
+                font-size: 1rem !important;
+            }
+
+            .loading-message div div:nth-child(3) {
+                font-size: 0.8rem !important;
+            }
+
+            .no-questions {
+                padding: 2rem 1rem;
+            }
+
+            .no-questions div:first-child {
+                font-size: 2rem !important;
+            }
+
+            .no-questions h3 {
+                font-size: 1.2rem;
+            }
+
+            .no-questions p {
+                font-size: 0.9rem;
+            }
+
+            .status-message {
+                padding: 0.75rem;
+                font-size: 0.9rem;
+                margin: 0.5rem 0;
+            }
+
+            .page-loading-content div:last-child {
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+
+            .section {
+                padding: 1rem;
+            }
+
+            .section-title {
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+            }
+
+            .form-group {
+                margin-bottom: 0.75rem;
+            }
+
+            input[type="text"], textarea {
+                padding: 0.5rem;
+                font-size: 0.85rem;
+            }
+
+            textarea {
+                min-height: 80px;
+            }
+
+            .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+
+            .instructions-panel {
+                padding: 0.75rem;
+            }
+
+            .instructions-panel h3 {
+                font-size: 1rem;
+            }
+
+            .instructions-panel li {
+                font-size: 0.8rem;
+            }
+
+            .session-notice {
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+
+            .class-code {
+                padding: 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            .question-block {
+                padding: 0.75rem;
+            }
+
+            .question-text {
+                font-size: 0.9rem;
+            }
+
+            .mic {
+                width: 45px;
+                height: 45px;
+            }
+
+            .mic-icon {
+                width: 22px;
+                height: 22px;
+            }
+
+            .result-section {
+                padding: 0.75rem;
+            }
+
+            .result-label {
+                font-size: 0.85rem;
+            }
+
+            .result-value {
+                font-size: 0.8rem;
+            }
+
+            .score {
+                font-size: 1rem;
+            }
+
+            .feedback {
+                padding: 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            .loading-message {
+                padding: 0.75rem;
+            }
+
+            .loading-message div {
+                padding: 0.75rem !important;
+            }
+
+            .loading-message div div:first-child {
+                font-size: 1.5rem !important;
+            }
+
+            .loading-message div div:nth-child(2) {
+                font-size: 0.9rem !important;
+            }
+
+            .loading-message div div:nth-child(3) {
+                font-size: 0.75rem !important;
+            }
+
+            .no-questions {
+                padding: 1.5rem 0.75rem;
+            }
+
+            .no-questions div:first-child {
+                font-size: 1.5rem !important;
+            }
+
+            .no-questions h3 {
+                font-size: 1.1rem;
+            }
+
+            .no-questions p {
+                font-size: 0.8rem;
+            }
+
+            .status-message {
+                padding: 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            .page-loading-spinner {
+                width: 40px;
+                height: 40px;
+            }
+
+            .page-loading-content div:last-child {
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Landscape orientation adjustments */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .container {
+                flex-direction: row;
+                height: calc(100vh - 20px);
+            }
+
+            .section {
+                padding: 1rem;
+            }
+
+            .section-title {
+                font-size: 1.2rem;
+                margin-bottom: 1rem;
+            }
+
+            .instructions-panel {
+                padding: 0.75rem;
+            }
+
+            .instructions-panel h3 {
+                font-size: 1rem;
+            }
+
+            .instructions-panel li {
+                font-size: 0.8rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .question-block {
+                padding: 0.75rem;
+            }
+
+            .question-text {
+                font-size: 0.85rem;
+            }
+
+            .result-section {
+                padding: 0.75rem;
+            }
+
+            .result-label {
+                font-size: 0.8rem;
+            }
+
+            .result-value {
+                font-size: 0.75rem;
+            }
+        }
+
+        /* High DPI displays */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            .mic-icon {
+                background-size: 25px 25px;
+            }
+        }
+
+        /* Touch device optimizations */
+        @media (hover: none) and (pointer: coarse) {
+            .btn:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+
+            .mic:hover {
+                background: rgba(255, 255, 255, 0.2);
+            }
+
+            .btn:active {
+                background: rgba(255, 255, 255, 0.3);
+                transform: scale(0.98);
+            }
+
+            .mic:active {
+                background: rgba(255, 255, 255, 0.3);
+                transform: scale(0.95);
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Page Loading Overlay -->
+    <div id="pageLoading" class="page-loading">
+        <div class="page-loading-content">
+            <div class="page-loading-spinner"></div>
+            <div>Loading Trial Page...</div>
+        </div>
+    </div>
+
     <div class="container">
         <!-- Teacher Section -->
         <div class="section">
@@ -219,6 +865,12 @@
                 <button type="submit" class="btn">Create Question</button>
             </form>
             
+            <div style="margin-top: 1rem; text-align: center;">
+                <button type="button" class="btn clear-btn" onclick="clearQuestions()">
+                    Clear All Questions
+                </button>
+            </div>
+            
             <div id="teacherMessage"></div>
         </div>
 
@@ -226,35 +878,63 @@
         <div class="section">
             <h1 class="section-title">👨‍🎓 Student Dashboard</h1>
             
+            <div class="session-notice">
+                <strong>⚠️ Trial Session Notice:</strong> Questions are stored locally in your browser session and will be cleared when you close the browser.
+            </div>
+            
+            <div class="instructions-panel">
+                <h3>📋 How to Use the Trial:</h3>
+                <ol>
+                    <li><strong>Create Questions:</strong> On the left, enter a question and expected answer, then click "Create Question"</li>
+                    <li><strong>Record Answers:</strong> Click the microphone button next to each question to record your response</li>
+                    <li><strong>Get Feedback:</strong> Wait for AI processing and review your score and feedback</li>
+                    <li><strong>Try Again:</strong> You can record multiple times for the same question</li>
+                </ol>
+                <div style="margin-top: 1rem; padding: 0.75rem; background: rgba(34, 197, 94, 0.2); border-radius: 8px; border: 1px solid rgba(34, 197, 94, 0.3);">
+                    <strong>💡 Tip:</strong> Speak clearly and try to answer the specific question asked!
+                </div>
+            </div>
+            
             <div class="class-code">
                 Class Code: TEST1
             </div>
             
-            <div class="recording-section">
-                <button id="recordBtn" class="record-btn">🎤 Start Recording</button>
-                <button id="stopBtn" class="record-btn" style="display: none;">⏹️ Stop Recording</button>
-            </div>
-            
-            <div id="resultSection" class="result-section" style="display: none;">
-                <div class="result-item">
-                    <div class="result-label">Question:</div>
-                    <div class="result-value" id="resultQuestion"></div>
-                </div>
-                
-                <div class="result-item">
-                    <div class="result-label">Your Answer:</div>
-                    <div class="result-value" id="resultAnswer"></div>
-                </div>
-                
-                <div class="result-item">
-                    <div class="result-label">Score:</div>
-                    <div class="result-value score" id="resultScore"></div>
-                </div>
-                
-                <div class="result-item">
-                    <div class="result-label">Feedback:</div>
-                    <div class="result-value feedback" id="resultFeedback"></div>
-                </div>
+            <div class="questions-container" id="questionsContainer">
+                {% if questions %}
+                    {% for question in questions %}
+                    <div class="question-block">
+                        <div class="question-text">
+                            <strong>Question {{ forloop.counter }}:</strong> {{ question.question_text }}
+                        </div>
+                        <div class="question-actions">
+                            <div class="mic" onclick="startRecording(this, {{ forloop.counter }})">
+                                <div class="mic-icon"></div>
+                                <div class="loading-animation"></div>
+                            </div>
+                        </div>
+                        <div class="result-section" id="result-{{ forloop.counter }}">
+                            <div class="result-item">
+                                <div class="result-label">Your Answer:</div>
+                                <div class="result-value" id="answer-{{ forloop.counter }}"></div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-label">Score:</div>
+                                <div class="result-value score" id="score-{{ forloop.counter }}"></div>
+                            </div>
+                            <div class="result-item">
+                                <div class="result-label">Feedback:</div>
+                                <div class="result-value feedback" id="feedback-{{ forloop.counter }}"></div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-questions" id="noQuestions">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🎤</div>
+                        <h3>No questions yet!</h3>
+                        <p>Create a question on the left to get started with the trial.</p>
+                    </div>
+                {% endif %}
             </div>
             
             <div id="studentMessage"></div>
@@ -265,55 +945,90 @@
         let mediaRecorder;
         let audioChunks = [];
         let isRecording = false;
+        let currentQuestionId = null;
+
+        // Hide page loading overlay when page is ready
+        window.addEventListener('load', function() {
+            const pageLoading = document.getElementById('pageLoading');
+            if (pageLoading) {
+                setTimeout(() => {
+                    pageLoading.style.opacity = '0';
+                    setTimeout(() => {
+                        pageLoading.style.display = 'none';
+                    }, 300);
+                }, 500);
+            }
+        });
+
+        // Add loading class to buttons during form submission
+        function setButtonLoading(button, isLoading) {
+            if (isLoading) {
+                button.classList.add('loading');
+                button.disabled = true;
+            } else {
+                button.classList.remove('loading');
+                button.disabled = false;
+            }
+        }
 
         // Teacher form submission
         document.getElementById('teacherForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const questionText = document.getElementById('question_text').value;
-            const expectedAnswer = document.getElementById('expected_answer').value;
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
             
-            if (!questionText || !expectedAnswer) {
-                showMessage('teacherMessage', 'Please fill in both fields.', 'error');
-                return;
-            }
+            // Show loading state
+            setButtonLoading(submitBtn, true);
+            submitBtn.textContent = 'Creating...';
+            
+            const formData = new FormData(this);
+            formData.append('action', 'create_question');
             
             try {
-                const response = await fetch('/trail/', {
+                const response = await fetch('/trial/', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
                         'X-CSRFToken': getCookie('csrftoken')
                     },
-                    body: new URLSearchParams({
-                        'action': 'create_question',
-                        'question_text': questionText,
-                        'expected_answer': expectedAnswer
-                    })
+                    body: formData
                 });
                 
                 const data = await response.json();
                 
                 if (data.status === 'success') {
                     showMessage('teacherMessage', data.message, 'success');
-                    document.getElementById('teacherForm').reset();
+                    this.reset();
+                    // Reload page to show new question
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
                 } else {
                     showMessage('teacherMessage', data.message, 'error');
                 }
             } catch (error) {
                 showMessage('teacherMessage', 'Error creating question: ' + error.message, 'error');
+            } finally {
+                // Reset button state
+                setButtonLoading(submitBtn, false);
+                submitBtn.textContent = originalText;
             }
         });
 
-        // Recording functionality
-        document.getElementById('recordBtn').addEventListener('click', startRecording);
-        document.getElementById('stopBtn').addEventListener('click', stopRecording);
+        async function startRecording(micElement, questionNumber) {
+            if (isRecording) {
+                // If already recording, stop it
+                mediaRecorder.stop();
+                micElement.classList.remove('recording');
+                isRecording = false;
+                return;
+            }
 
-        async function startRecording() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
+                currentQuestionId = questionNumber;
                 
                 mediaRecorder.ondataavailable = (event) => {
                     audioChunks.push(event.data);
@@ -321,40 +1036,53 @@
                 
                 mediaRecorder.onstop = async () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                    await submitAudio(audioBlob);
+                    await submitAudio(audioBlob, questionNumber);
+                    
+                    // Stop all tracks to release microphone
+                    stream.getTracks().forEach(track => track.stop());
                 };
                 
                 mediaRecorder.start();
                 isRecording = true;
                 
-                document.getElementById('recordBtn').style.display = 'none';
-                document.getElementById('stopBtn').style.display = 'inline-block';
-                document.getElementById('recordBtn').classList.add('recording');
+                micElement.classList.add('recording');
+                
+                // Auto-stop after 8 seconds like the main assignments
+                setTimeout(() => {
+                    if (isRecording) {
+                        mediaRecorder.stop();
+                        micElement.classList.remove('recording');
+                        isRecording = false;
+                    }
+                }, 8000);
                 
             } catch (error) {
                 showMessage('studentMessage', 'Error accessing microphone: ' + error.message, 'error');
             }
         }
 
-        function stopRecording() {
-            if (mediaRecorder && isRecording) {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                
-                isRecording = false;
-                document.getElementById('recordBtn').style.display = 'inline-block';
-                document.getElementById('stopBtn').style.display = 'none';
-                document.getElementById('recordBtn').classList.remove('recording');
-            }
-        }
-
-        async function submitAudio(audioBlob) {
+        async function submitAudio(audioBlob, questionNumber) {
             try {
+                // Show loading state
+                const micElement = document.querySelector(`[onclick*="${questionNumber}"]`);
+                if (micElement) {
+                    micElement.style.pointerEvents = 'none';
+                    micElement.style.opacity = '0.7';
+                    micElement.classList.add('processing'); // Add processing class
+                }
+
+                // Show loading message and ensure result section is visible
+                const resultSection = document.getElementById(`result-${questionNumber}`);
+                if (resultSection) {
+                    resultSection.style.display = 'block';
+                }
+                showLoadingMessage(questionNumber);
+
                 const reader = new FileReader();
                 reader.onload = async function() {
                     const base64Audio = reader.result.split(',')[1];
                     
-                    const response = await fetch('/trail/', {
+                    const response = await fetch('/trial/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/x-www-form-urlencoded',
@@ -362,42 +1090,96 @@
                         },
                         body: new URLSearchParams({
                             'action': 'submit_audio',
-                            'audio_data': base64Audio
+                            'audio_data': base64Audio,
+                            'question_id': questionNumber
                         })
                     });
                     
                     const data = await response.json();
                     
+                    // Hide loading message
+                    hideLoadingMessage(questionNumber);
+                    
+                    // Reset mic element
+                    if (micElement) {
+                        micElement.style.pointerEvents = 'auto';
+                        micElement.style.opacity = '1';
+                        micElement.classList.remove('processing'); // Remove processing class
+                    }
+                    
                     if (data.error) {
                         showMessage('studentMessage', data.error, 'error');
                     } else {
-                        displayResults(data);
+                        displayResults(data, questionNumber);
                     }
                 };
                 reader.readAsDataURL(audioBlob);
                 
             } catch (error) {
+                // Hide loading message on error
+                hideLoadingMessage(questionNumber);
                 showMessage('studentMessage', 'Error submitting audio: ' + error.message, 'error');
+                
+                // Reset mic element on error
+                const micElement = document.querySelector(`[onclick*="${questionNumber}"]`);
+                if (micElement) {
+                    micElement.style.pointerEvents = 'auto';
+                    micElement.style.opacity = '1';
+                    micElement.classList.remove('processing'); // Remove processing class
+                }
             }
         }
 
-        function displayResults(data) {
-            document.getElementById('resultQuestion').textContent = data.question;
-            document.getElementById('resultAnswer').textContent = data.transcribed_text;
-            document.getElementById('resultScore').textContent = data.score;
-            document.getElementById('resultFeedback').textContent = data.feedback;
+        function displayResults(data, questionNumber) {
+            document.getElementById(`answer-${questionNumber}`).textContent = data.transcribed_text;
+            document.getElementById(`score-${questionNumber}`).textContent = data.score;
+            document.getElementById(`feedback-${questionNumber}`).textContent = data.feedback;
             
-            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById(`result-${questionNumber}`).style.display = 'block';
             showMessage('studentMessage', 'Audio processed successfully!', 'success');
+            
+            // Remove recording state from mic
+            const micElement = document.querySelector(`#result-${questionNumber}`).previousElementSibling.querySelector('.mic');
+            micElement.classList.remove('recording');
         }
 
-        function showMessage(elementId, message, type) {
+        function showMessage(elementId, message, type = 'info') {
             const element = document.getElementById(elementId);
-            element.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
-            
-            setTimeout(() => {
-                element.innerHTML = '';
-            }, 5000);
+            if (element) {
+                element.textContent = message;
+                element.className = `status-message status-${type}`;
+                element.style.display = 'block';
+                
+                setTimeout(() => {
+                    element.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        function showLoadingMessage(questionNumber) {
+            const resultSection = document.getElementById(`result-${questionNumber}`);
+            if (resultSection) {
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = `loading-${questionNumber}`;
+                loadingDiv.className = 'loading-message';
+                loadingDiv.innerHTML = `
+                    <div style="text-align: center; padding: 2rem;">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🎤</div>
+                        <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">Processing your audio...</div>
+                        <div style="font-size: 0.9rem; opacity: 0.8; margin-bottom: 1rem;">This may take a few seconds</div>
+                        <div class="loading-spinner" style="width: 40px; height: 40px; border: 3px solid rgba(255, 255, 255, 0.3); border-top: 3px solid #ffffff; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                    </div>
+                `;
+                resultSection.appendChild(loadingDiv);
+                resultSection.style.display = 'block';
+            }
+        }
+
+        function hideLoadingMessage(questionNumber) {
+            const loadingDiv = document.getElementById(`loading-${questionNumber}`);
+            if (loadingDiv) {
+                loadingDiv.remove();
+            }
         }
 
         function getCookie(name) {
@@ -413,6 +1195,48 @@
                 }
             }
             return cookieValue;
+        }
+
+        function clearQuestions() {
+            if (confirm('Are you sure you want to clear all questions? This action cannot be undone.')) {
+                const clearBtn = document.querySelector('.clear-btn');
+                const originalText = clearBtn.textContent;
+                
+                // Show loading state
+                setButtonLoading(clearBtn, true);
+                clearBtn.textContent = 'Clearing...';
+                
+                fetch('/trial/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: new URLSearchParams({
+                        'action': 'clear_questions'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showMessage('teacherMessage', data.message, 'success');
+                        // Reload page to show updated questions
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        showMessage('teacherMessage', data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    showMessage('teacherMessage', 'Error clearing questions: ' + error.message, 'error');
+                })
+                .finally(() => {
+                    // Reset button state
+                    setButtonLoading(clearBtn, false);
+                    clearBtn.textContent = originalText;
+                });
+            }
         }
     </script>
 </body>

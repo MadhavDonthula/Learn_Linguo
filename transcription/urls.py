@@ -41,6 +41,6 @@ path("update_interpersonal_question_status/", views.update_interpersonal_questio
     path('teacher/delete_session/<int:session_id>/', teacher_views.delete_session, name='delete_session'),
     
     # Trial page
-    path('trail/', trial_views.trial_page, name='trail')
+    path('trial/', trial_views.trial_page, name='trail')
 ]
 
